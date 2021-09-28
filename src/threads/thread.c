@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "timer.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -19,6 +20,8 @@
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
+
+static struct list sleep_list;
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
@@ -463,6 +466,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->created_ticks = timer_ticks();
+  t->sleep_ticks = 0;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -582,3 +587,34 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+void thread_sleep(int64_t ticks)
+{
+  struct thread *cur = thread_current();
+  cur->status = THREAD_BLOCKED;
+  cur->sleep_ticks = ticks;
+  list_push_back(&sleep_list, &cur->elem);
+}
+
+void thread_awake()
+{
+  int64_t cur_ticks = timer_ticks();
+  struct list_elem * it = list_begin(&sleep_list);
+  for (it = list_begin (&sleep_list); it != list_end (&sleep_list);
+        it = list_next (it))
+    {
+      struct thread *t = list_entry (it, struct thread, elem);
+      if(cur_ticks - t->sleep_ticks - t->created_ticks >= 0)
+      {
+        t->status = THREAD_READY;
+        list_remove(&t->elem);
+        list_push_back(&ready_list, &t->elem);
+        break;
+      } 
+    }
+}
+
+// bool compare_ticks(int64_t a, int64_t b)
+// {
+//   return (a < b) ? true : false;
+// }
