@@ -143,5 +143,6 @@ int thread_get_load_avg (void);
 void thread_sleep (int64_t ticks);
 void thread_awake (void);
 bool is_idle (void);
+bool compare_thread_ticks(const struct list_elem *new_elem, const struct list_elem *exist_elem, void *aux UNUSED);
 
 #endif /* threads/thread.h */

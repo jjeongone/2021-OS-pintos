@@ -593,9 +593,9 @@ void thread_sleep(int64_t ticks)
   struct thread *cur = thread_current();
   enum intr_level old_level;
   old_level = intr_disable ();
-  
-  list_push_back(&sleep_list, &cur->elem);
+
   cur->sleep_ticks = ticks;
+  list_insert_ordered(&sleep_list, &cur->elem, &compare_thread_ticks, NULL);
   thread_block();
 
   intr_set_level (old_level);
@@ -605,27 +605,24 @@ void thread_awake(void)
 {
   int64_t cur_ticks = timer_ticks();
   struct list_elem * it = list_begin (&sleep_list);
-  
-  for (it ; it != list_end (&sleep_list) ; it = list_next (it))
+
+  if (!list_empty(&sleep_list))
+  {
+    struct thread *t = list_entry (list_front(&sleep_list), struct thread, elem);
+    if(timer_elapsed(t->sleep_ticks) <= 0)
     {
-      struct thread *t = list_entry (it, struct thread, elem);
-      if(timer_elapsed(t->sleep_ticks) >= 0)
-      {
-        list_remove(&t->elem);
-        thread_unblock(t);
-        break;
-      } 
-    }
+      list_pop_front(&sleep_list);
+      thread_unblock(t);
+    } 
+  }
   return;
 }
 
-// bool compare_thread_ticks(list_elem *new_elem, list_elem *exist_elem)
-// {
-//   struct thread *t_new = list_entry (new_elem, struct thread, elem);
-//   struct thread *t_exist = list_entry (exist_elem, struct thread, elem);
-  
-//   return (a < b) ? true : false;
-// }
+bool compare_thread_ticks(const struct list_elem *new_elem, const struct list_elem *exist_elem, void *aux UNUSED)
+{
+  return list_entry (new_elem, struct thread, elem)->sleep_ticks 
+      < list_entry (exist_elem, struct thread, elem)->sleep_ticks;
+}
 
 bool is_idle (void)
 {
