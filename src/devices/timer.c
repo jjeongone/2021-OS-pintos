@@ -96,7 +96,7 @@ timer_sleep (int64_t ticks)
   {
     if (ticks > 0) 
     {
-      thread_sleep (ticks);
+      thread_sleep (start + ticks);
     }
   }
 }

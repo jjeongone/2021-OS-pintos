@@ -603,17 +603,13 @@ void thread_sleep(int64_t ticks)
 
 void thread_awake(void)
 {
-  int64_t cur_ticks = timer_ticks();
-  struct list_elem * it = list_begin (&sleep_list);
-
-  if (!list_empty(&sleep_list))
+  // int64_t cur_ticks = timer_ticks();
+  struct thread *t = list_entry (list_begin(&sleep_list), struct thread, elem);
+  while(!list_empty(&sleep_list) && timer_elapsed(t->sleep_ticks) >= 0)
   {
-    struct thread *t = list_entry (list_front(&sleep_list), struct thread, elem);
-    if(timer_elapsed(t->sleep_ticks) <= 0)
-    {
-      list_pop_front(&sleep_list);
-      thread_unblock(t);
-    } 
+    list_pop_front(&sleep_list);
+    thread_unblock(t);
+    t = list_entry (list_begin(&sleep_list), struct thread, elem);
   }
   return;
 }
