@@ -94,8 +94,11 @@ timer_sleep (int64_t ticks)
   ASSERT (intr_get_level () == INTR_ON);
   // ticks = 0 -> sleep x
   // ticks > 0 -> yield -> sleep
-  ASSERT (ticks != 0);
-  thread_sleep(ticks);
+  if (ticks <= 0) 
+  {
+    return;
+  }
+  thread_sleep (ticks);
   thread_yield ();
 }
 
