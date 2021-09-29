@@ -467,7 +467,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  t->created_ticks = timer_ticks();
   t->sleep_ticks = 0;
 
   old_level = intr_disable ();
@@ -592,49 +591,43 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 void thread_sleep(int64_t ticks)
 {
   struct thread *cur = thread_current();
-  cur->status = THREAD_BLOCKED;
-  cur->sleep_ticks = ticks;
+  enum intr_level old_level;
+  old_level = intr_disable ();
+  
   list_push_back(&sleep_list, &cur->elem);
-  return;
+  cur->sleep_ticks = ticks;
+  thread_block();
+
+  intr_set_level (old_level);
 }
 
 void thread_awake(void)
 {
   int64_t cur_ticks = timer_ticks();
   struct list_elem * it = list_begin (&sleep_list);
-  if (list_empty(&sleep_list))
-  {
-    return;
-  }
-  else if (list_front(&sleep_list) == list_back(&sleep_list))
-  {
-    struct thread *t = list_entry (it, struct thread, elem);
-    if(cur_ticks - t->sleep_ticks - t->created_ticks >= 0)
-      {
-        t->status = THREAD_READY;
-        list_remove(&t->elem);
-        list_push_back(&ready_list, &t->elem);
-      } 
-  } 
-  else
-  {
-    for (it ; it != list_end (&sleep_list) ; it = list_next (it))
+  
+  for (it ; it != list_end (&sleep_list) ; it = list_next (it))
     {
-      printf("for");
       struct thread *t = list_entry (it, struct thread, elem);
-      if(cur_ticks - t->sleep_ticks - t->created_ticks >= 0)
+      if(timer_elapsed(t->sleep_ticks) >= 0)
       {
-        t->status = THREAD_READY;
         list_remove(&t->elem);
-        list_push_back(&ready_list, &t->elem);
+        thread_unblock(t);
         break;
       } 
     }
-  }
   return;
 }
 
-// bool compare_ticks(int64_t a, int64_t b)
+// bool compare_thread_ticks(list_elem *new_elem, list_elem *exist_elem)
 // {
+//   struct thread *t_new = list_entry (new_elem, struct thread, elem);
+//   struct thread *t_exist = list_entry (exist_elem, struct thread, elem);
+  
 //   return (a < b) ? true : false;
 // }
+
+bool is_idle (void)
+{
+  return thread_current() == idle_thread;
+}

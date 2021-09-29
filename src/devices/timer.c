@@ -92,14 +92,13 @@ timer_sleep (int64_t ticks)
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
-  // ticks = 0 -> sleep x
-  // ticks > 0 -> yield -> sleep
-  if (ticks <= 0) 
+  if (!is_idle())
   {
-    return;
+    if (ticks >= 0) 
+    {
+      thread_sleep (ticks);
+    }
   }
-  thread_sleep (ticks);
-  thread_yield ();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
