@@ -11,7 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
-#include "timer.h"
+#include "devices/timer.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -95,6 +95,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init (&sleep_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -594,15 +595,32 @@ void thread_sleep(int64_t ticks)
   cur->status = THREAD_BLOCKED;
   cur->sleep_ticks = ticks;
   list_push_back(&sleep_list, &cur->elem);
+  return;
 }
 
-void thread_awake()
+void thread_awake(void)
 {
   int64_t cur_ticks = timer_ticks();
-  struct list_elem * it = list_begin(&sleep_list);
-  for (it = list_begin (&sleep_list); it != list_end (&sleep_list);
-        it = list_next (it))
+  struct list_elem * it = list_begin (&sleep_list);
+  if (list_empty(&sleep_list))
+  {
+    return;
+  }
+  else if (list_front(&sleep_list) == list_back(&sleep_list))
+  {
+    struct thread *t = list_entry (it, struct thread, elem);
+    if(cur_ticks - t->sleep_ticks - t->created_ticks >= 0)
+      {
+        t->status = THREAD_READY;
+        list_remove(&t->elem);
+        list_push_back(&ready_list, &t->elem);
+      } 
+  } 
+  else
+  {
+    for (it ; it != list_end (&sleep_list) ; it = list_next (it))
     {
+      printf("for");
       struct thread *t = list_entry (it, struct thread, elem);
       if(cur_ticks - t->sleep_ticks - t->created_ticks >= 0)
       {
@@ -612,6 +630,8 @@ void thread_awake()
         break;
       } 
     }
+  }
+  return;
 }
 
 // bool compare_ticks(int64_t a, int64_t b)
