@@ -603,7 +603,6 @@ void thread_sleep(int64_t ticks)
 
 void thread_awake(void)
 {
-  // int64_t cur_ticks = timer_ticks();
   struct thread *t = list_entry (list_begin(&sleep_list), struct thread, elem);
   while(!list_empty(&sleep_list) && timer_elapsed(t->sleep_ticks) >= 0)
   {
