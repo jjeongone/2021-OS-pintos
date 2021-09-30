@@ -203,8 +203,16 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
 
   /* Add to run queue. */
-  thread_unblock (t);
-
+  if (priority > thread_current ()-> priority)
+  {
+    list_insert_ordered (&ready_list, &t->elem, &compare_thread_priority, NULL);
+    thread_yield();
+  }
+  else
+  {
+    thread_unblock (t);
+  }
+  
   return tid;
 }
 
@@ -342,7 +350,7 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
-  if (thread_current ()->priority < list_entry (list_begin(&ready_list), struct thread, elem))
+  if (thread_current ()->priority < list_entry (list_begin(&ready_list), struct thread, elem)->priority)
   {
     thread_yield();
   }
