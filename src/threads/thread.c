@@ -656,8 +656,8 @@ bool compare_donated_priority(const struct list_elem *new_elem, const struct lis
 //   struct semaphore *new_sema = list_entry (new_elem, struct semaphore, elem);
 //   struct semaphore *exist_sema = list_entry (exist_elem, struct semaphore, elem);
 
-//   return list_entry (list_begin(&new_sema->waiters), struct thread, elem)->priority 
-//       > list_entry (list_begin(&exist_sema->waiters), struct thread, elem)->priority;
+//   return list_entry (list_begin(&new_sema.waiters), struct thread, elem)->priority 
+//       > list_entry (list_begin(&exist_sema.waiters), struct thread, elem)->priority;
 // }
 
 void donate_priority (struct thread* donated_thread)
@@ -681,30 +681,34 @@ void donate_priority (struct thread* donated_thread)
 void restore_priority (struct lock *lock)
 {
   struct thread* donated_thread = lock->holder;
-  while(!list_empty(&lock->semaphore.waiters))
+  struct list_elem *e;
+  for (e = list_begin(&donated_thread->donated_list); e != list_end(&donated_thread->donated_list); e = list_next (e))
   {
-    list_pop_front(&donated_thread->donated_list);
-    list_pop_front(&lock->semaphore.waiters);
+    if (list_entry(e, struct thread, delem)->blocked_lock == lock)
+    {
+      list_remove(e);
+    }
   }
+  donated_thread->donated_priority = donated_thread->priority;
 
-  if (!list_empty(&donated_thread->donated_list))
-  {
-    int max_donated_priority = list_entry(list_begin(&donated_thread->donated_list), struct thread, delem)->donated_priority;
-    if (donated_thread->donated_priority > max_donated_priority)
-    {
-      while(!list_empty(&donated_thread->donated_list))
-      {
-        printf(".\n");
-        list_pop_front(&donated_thread->donated_list);
-      }
-    }
-    else
-    {
-      donated_thread->donated_priority = max_donated_priority;
-    }
-  }
-  else
-  {
-    donated_thread->donated_priority = donated_thread->priority;
-  }
+  // if (!list_empty(&donated_thread->donated_list))
+  // {
+  //   int max_donated_priority = list_entry(list_begin(&donated_thread->donated_list), struct thread, delem)->donated_priority;
+  //   if (donated_thread->donated_priority > max_donated_priority)
+  //   {
+  //     while(!list_empty(&donated_thread->donated_list))
+  //     {
+  //       list_pop_front(&donated_thread->donated_list);
+  //     }
+  //   }
+  //   else
+  //   {
+  //     donated_thread->donated_priority = max_donated_priority;
+  //   }
+  // }
+  // else
+  // {
+  //   donated_thread->donated_priority = donated_thread->priority;
+  //   printf("donated_priority: %d\n", donated_thread->donated_priority);
+  // }
 }
