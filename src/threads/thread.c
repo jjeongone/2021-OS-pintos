@@ -212,7 +212,6 @@ thread_create (const char *name, int priority,
   {
     thread_unblock (t);
   }
-  
   return tid;
 }
 
@@ -358,7 +357,7 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void) 
 {
-  return thread_current ()->priority;
+  return thread_current ()->priority < thread_current ()->donated_priority ? thread_current ()->donated_priority: thread_current ()->priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -478,6 +477,9 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->donated_priority = priority;
+  t->blocked_lock = NULL;
+  list_init(&t->donated_list);
   t->magic = THREAD_MAGIC;
   t->sleep_ticks = 0;
 
@@ -640,4 +642,69 @@ bool compare_thread_priority(const struct list_elem *new_elem, const struct list
 {
   return list_entry (new_elem, struct thread, elem)->priority 
       > list_entry (exist_elem, struct thread, elem)->priority;
+}
+
+bool compare_donated_priority(const struct list_elem *new_elem, const struct list_elem *exist_elem, void *aux UNUSED)
+{
+  return list_entry (new_elem, struct thread, delem)->priority 
+      > list_entry (exist_elem, struct thread, delem)->priority;
+}
+
+// // debugging
+// bool compare_sema_priority (const struct list_elem *new_elem, const struct list_elem *exist_elem, void *aux UNUSED)
+// {
+//   struct semaphore *new_sema = list_entry (new_elem, struct semaphore, elem);
+//   struct semaphore *exist_sema = list_entry (exist_elem, struct semaphore, elem);
+
+//   return list_entry (list_begin(&new_sema->waiters), struct thread, elem)->priority 
+//       > list_entry (list_begin(&exist_sema->waiters), struct thread, elem)->priority;
+// }
+
+void donate_priority (struct thread* donated_thread)
+{
+  struct thread* cur = thread_current();
+  if(donated_thread->donated_priority < cur->donated_priority)
+  {
+    donated_thread->donated_priority = cur->donated_priority;
+    list_insert_ordered(&donated_thread->donated_list, &cur->delem, &compare_donated_priority, NULL);
+    while(cur->blocked_lock != NULL)
+    {
+      if(cur->blocked_lock->holder->donated_priority < cur->donated_priority)
+      {
+        cur->blocked_lock->holder->donated_priority = cur->donated_priority;
+      }
+      cur = cur->blocked_lock->holder;
+    }    
+  }
+}
+
+void restore_priority (struct lock *lock)
+{
+  struct thread* donated_thread = lock->holder;
+  while(!list_empty(&lock->semaphore.waiters))
+  {
+    list_pop_front(&donated_thread->donated_list);
+    list_pop_front(&lock->semaphore.waiters);
+  }
+
+  if (!list_empty(&donated_thread->donated_list))
+  {
+    int max_donated_priority = list_entry(list_begin(&donated_thread->donated_list), struct thread, delem)->donated_priority;
+    if (donated_thread->donated_priority > max_donated_priority)
+    {
+      while(!list_empty(&donated_thread->donated_list))
+      {
+        printf(".\n");
+        list_pop_front(&donated_thread->donated_list);
+      }
+    }
+    else
+    {
+      donated_thread->donated_priority = max_donated_priority;
+    }
+  }
+  else
+  {
+    donated_thread->donated_priority = donated_thread->priority;
+  }
 }
