@@ -241,7 +241,8 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  // list_push_back (&ready_list, &t->elem);
+  list_insert_ordered (&ready_list, &t->elem, &compare_thread_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -312,7 +313,8 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    // list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered (&ready_list, &cur->elem, &compare_thread_priority, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -340,6 +342,10 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  if (thread_current ()->priority < list_entry (list_begin(&ready_list), struct thread, elem))
+  {
+    thread_yield();
+  }
 }
 
 /* Returns the current thread's priority. */
@@ -613,13 +619,19 @@ void thread_awake(void)
   return;
 }
 
+bool is_idle (void)
+{
+  return thread_current() == idle_thread;
+}
+
 bool compare_thread_ticks(const struct list_elem *new_elem, const struct list_elem *exist_elem, void *aux UNUSED)
 {
   return list_entry (new_elem, struct thread, elem)->sleep_ticks 
       < list_entry (exist_elem, struct thread, elem)->sleep_ticks;
 }
 
-bool is_idle (void)
+bool compare_thread_priority(const struct list_elem *new_elem, const struct list_elem *exist_elem, void *aux UNUSED)
 {
-  return thread_current() == idle_thread;
+  return list_entry (new_elem, struct thread, elem)->priority 
+      > list_entry (exist_elem, struct thread, elem)->priority;
 }

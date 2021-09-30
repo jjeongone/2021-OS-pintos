@@ -88,6 +88,8 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
+    int donated_priority;
+    struct list donated_list;
     struct list_elem allelem;           /* List element for all threads list. */
 
     int64_t sleep_ticks;
@@ -144,5 +146,6 @@ void thread_sleep (int64_t ticks);
 void thread_awake (void);
 bool is_idle (void);
 bool compare_thread_ticks(const struct list_elem *new_elem, const struct list_elem *exist_elem, void *aux UNUSED);
+bool compare_thread_priority(const struct list_elem *new_elem, const struct list_elem *exist_elem, void *aux UNUSED);
 
 #endif /* threads/thread.h */
