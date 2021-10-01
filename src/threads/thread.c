@@ -351,10 +351,6 @@ thread_set_priority (int new_priority)
   {
     thread_current()->donated_priority = new_priority;
   }
-  // if ( new_priority > thread_current()->donated_priority)
-  // {
-  //   thread_current()->donated_priority = new_priority;
-  // }
   reschedule();
 }
 
@@ -654,16 +650,6 @@ bool compare_donated_priority(const struct list_elem *new_elem, const struct lis
   return list_entry (new_elem, struct thread, delem)->donated_priority 
       > list_entry (exist_elem, struct thread, delem)->donated_priority;
 }
-
-// // debugging
-// bool compare_sema_priority (const struct list_elem *new_elem, const struct list_elem *exist_elem, void *aux UNUSED)
-// {
-//   struct semaphore *new_sema = list_entry (new_elem, struct semaphore, elem);
-//   struct semaphore *exist_sema = list_entry (exist_elem, struct semaphore, elem);
-
-//   return list_entry (list_begin(&new_sema.waiters), struct thread, elem)->priority 
-//       > list_entry (list_begin(&exist_sema.waiters), struct thread, elem)->priority;
-// }
 
 void donate_priority (struct thread* donated_thread)
 {

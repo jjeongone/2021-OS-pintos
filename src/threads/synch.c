@@ -66,11 +66,8 @@ sema_down (struct semaphore *sema)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  // while (sema->value == 0 && !list_empty(&sema->waiters)) 
   while (sema->value == 0)
     {
-      // list_push_back (&sema->waiters, &thread_current ()->elem);
-      // list_insert_ordered (&sema.waiters, &thread_current ()->elem, &compare_sema_priority, NULL);
       list_insert_ordered (&sema->waiters, &thread_current ()->elem, &compare_thread_priority, NULL);
       thread_block ();
     }
@@ -309,8 +306,7 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-  // list_push_back (&cond->waiters, &waiter.elem);
-  list_insert_ordered (&cond->waiters, &waiter.elem, &compare_thread_priority, NULL);
+  list_insert_ordered (&cond->waiters, &waiter.elem, &compare_sema_elem_priority, NULL);
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
@@ -331,9 +327,12 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (!intr_context ());
   ASSERT (lock_held_by_current_thread (lock));
 
-  if (!list_empty (&cond->waiters)) 
+  if (!list_empty (&cond->waiters))
+  {
+    list_sort(&cond->waiters, &compare_sema_elem_priority, NULL);
     sema_up (&list_entry (list_pop_front (&cond->waiters),
                           struct semaphore_elem, elem)->semaphore);
+  }  
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
@@ -350,4 +349,10 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
+}
+
+bool compare_sema_elem_priority(const struct list_elem *new_elem, const struct list_elem *exist_elem, void *aux UNUSED)
+{
+  return list_entry (list_begin(&list_entry(new_elem, struct semaphore_elem, elem)->semaphore.waiters), struct thread, elem)->donated_priority 
+      > list_entry (list_begin(&list_entry(exist_elem, struct semaphore_elem, elem)->semaphore.waiters), struct thread, elem)->donated_priority;
 }

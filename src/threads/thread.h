@@ -150,7 +150,6 @@ bool is_idle (void);
 bool compare_thread_ticks(const struct list_elem *new_elem, const struct list_elem *exist_elem, void *aux UNUSED);
 bool compare_thread_priority(const struct list_elem *new_elem, const struct list_elem *exist_elem, void *aux UNUSED);
 bool compare_donated_priority(const struct list_elem *new_elem, const struct list_elem *exist_elem, void *aux UNUSED);
-// bool compare_sema_priority (const struct list_elem *new_elem, const struct list_elem *exist_elem, void *aux UNUSED);
 void donate_priority (struct thread* donated_thread);
 void restore_priority (struct lock *lock);
 void reschedule (void);
