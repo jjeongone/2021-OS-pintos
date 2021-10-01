@@ -203,7 +203,7 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
 
   /* Add to run queue. */
-  if (priority > thread_current ()-> priority)
+  if (priority > thread_current ()-> donated_priority)
   {
     list_insert_ordered (&ready_list, &t->elem, &compare_thread_priority, NULL);
     thread_yield();
@@ -347,10 +347,15 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
-  if (thread_current ()->priority < list_entry (list_begin(&ready_list), struct thread, elem)->priority)
+  if (list_empty(&thread_current()->donated_list))
   {
-    thread_yield();
+    thread_current()->donated_priority = new_priority;
   }
+  // if ( new_priority > thread_current()->donated_priority)
+  // {
+  //   thread_current()->donated_priority = new_priority;
+  // }
+  reschedule();
 }
 
 /* Returns the current thread's priority. */
@@ -640,14 +645,14 @@ bool compare_thread_ticks(const struct list_elem *new_elem, const struct list_el
 
 bool compare_thread_priority(const struct list_elem *new_elem, const struct list_elem *exist_elem, void *aux UNUSED)
 {
-  return list_entry (new_elem, struct thread, elem)->priority 
-      > list_entry (exist_elem, struct thread, elem)->priority;
+  return list_entry (new_elem, struct thread, elem)->donated_priority 
+      > list_entry (exist_elem, struct thread, elem)->donated_priority;
 }
 
 bool compare_donated_priority(const struct list_elem *new_elem, const struct list_elem *exist_elem, void *aux UNUSED)
 {
-  return list_entry (new_elem, struct thread, delem)->priority 
-      > list_entry (exist_elem, struct thread, delem)->priority;
+  return list_entry (new_elem, struct thread, delem)->donated_priority 
+      > list_entry (exist_elem, struct thread, delem)->donated_priority;
 }
 
 // // debugging
@@ -691,32 +696,30 @@ void restore_priority (struct lock *lock)
   }
   donated_thread->donated_priority = donated_thread->priority;
 
-  // if (!list_empty(&donated_thread->donated_list))
-  // {
-  //   int max_donated_priority = list_entry(list_begin(&donated_thread->donated_list), struct thread, delem)->donated_priority;
-  //   if (donated_thread->donated_priority > max_donated_priority)
-  //   {
-  //     while(!list_empty(&donated_thread->donated_list))
-  //     {
-  //       list_pop_front(&donated_thread->donated_list);
-  //     }
-  //   }
-  //   else
-  //   {
-  //     donated_thread->donated_priority = max_donated_priority;
-  //   }
-  // }
-  // else
-  // {
-  //   donated_thread->donated_priority = donated_thread->priority;
-  //   printf("donated_priority: %d\n", donated_thread->donated_priority);
-  // }
+  if (!list_empty(&donated_thread->donated_list))
+  {
+    int max_donated_priority = list_entry(list_begin(&donated_thread->donated_list), struct thread, delem)->donated_priority;
+    if (donated_thread->donated_priority > max_donated_priority)
+    {
+      while(!list_empty(&donated_thread->donated_list))
+      {
+        list_pop_front(&donated_thread->donated_list);
+      }
+    }
+    else
+    {
+      donated_thread->donated_priority = max_donated_priority;
+    }
+  }
+  else
+  {
+    donated_thread->donated_priority = donated_thread->priority;
+  }
 }
 
 void reschedule (void) 
 {
-  // if finishing release lock, donated thread should yield because the purpose of donation is completed.
-  if (!list_empty(&ready_list) && thread_current()->donated_priority < list_entry(list_begin(&ready_list), struct thread, elem))
+  if (!list_empty(&ready_list) && thread_current()->donated_priority <= list_entry(list_begin(&ready_list), struct thread, elem)->donated_priority)
   {
     thread_yield();
   }
