@@ -712,3 +712,12 @@ void restore_priority (struct lock *lock)
   //   printf("donated_priority: %d\n", donated_thread->donated_priority);
   // }
 }
+
+void reschedule (void) 
+{
+  // if finishing release lock, donated thread should yield because the purpose of donation is completed.
+  if (!list_empty(&ready_list) && thread_current()->donated_priority < list_entry(list_begin(&ready_list), struct thread, elem))
+  {
+    thread_yield();
+  }
+}

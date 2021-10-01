@@ -75,6 +75,7 @@ sema_down (struct semaphore *sema)
     }
   sema->value--;
   intr_set_level (old_level);
+
 }
 
 /* Down or "P" operation on a semaphore, but only if the
@@ -120,6 +121,7 @@ sema_up (struct semaphore *sema)
                                 struct thread, elem));
   sema->value++;
   intr_set_level (old_level);
+  reschedule();
 }
 
 static void sema_test_helper (void *sema_);
@@ -200,7 +202,6 @@ lock_acquire (struct lock *lock)
 
   if (lock->holder != NULL && lock->holder->donated_priority < thread_current()->donated_priority)
   {
-    printf("donation!\n");
     thread_current()->blocked_lock = lock;
     donate_priority(lock->holder);
   }
@@ -243,6 +244,7 @@ lock_release (struct lock *lock)
   restore_priority(lock);
   lock->holder = NULL;
   sema_up (&lock->semaphore);
+
 }
 
 /* Returns true if the current thread holds LOCK, false
