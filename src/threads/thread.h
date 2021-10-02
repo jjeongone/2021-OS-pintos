@@ -89,6 +89,8 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     int donated_priority;
+    int nice;
+    int recent_cpu;
     struct lock *blocked_lock;
     struct list donated_list;
     struct list_elem delem;
@@ -141,8 +143,13 @@ void thread_set_priority (int);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
+void thread_set_recent_cpu (struct thread* t);
 int thread_get_recent_cpu (void);
+void thread_set_load_avg (void);
 int thread_get_load_avg (void);
+int thread_cal_priority (struct thread* t);
+void update_all_thread_priority (void);
+void update_all_thread_recent_cpu (void);
 
 void thread_sleep (int64_t ticks);
 void thread_awake (void);
