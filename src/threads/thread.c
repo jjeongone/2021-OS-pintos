@@ -406,7 +406,10 @@ thread_get_load_avg (void)
 
 void thread_set_recent_cpu (struct thread* t)
 {
-  t->recent_cpu = CONVERT_TO_INT_NEAR(FP_ADD_INT(FP_MUL(FP_DIV(FP_MUL_INT(load_avg, 2), FP_ADD_INT(FP_MUL_INT(load_avg, 2), 1)), t->recent_cpu), t->nice));
+  if(!is_idle())
+  {
+    t->recent_cpu = CONVERT_TO_INT_NEAR(FP_ADD_INT(FP_MUL(FP_DIV(FP_MUL_INT(load_avg, 2) , FP_ADD_INT(FP_MUL_INT(load_avg, 2), 1)), t->recent_cpu), t->nice));
+  }
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -418,11 +421,10 @@ thread_get_recent_cpu (void)
 
 int thread_cal_priority (struct thread* t)
 {
-  if (t == idle_thread)
+  if (t != idle_thread)
   {
-    return;
+    return FP_SUB_INT(FP_ADD_INT(-FP_DIV_INT(t->recent_cpu, 4), PRI_MAX), t->nice * 2);
   }
-  return FP_SUB_INT(FP_ADD_INT(-FP_DIV_INT(t->recent_cpu, 4), PRI_MAX), t->nice * 2);
 }
 
 void update_all_thread_priority (void)
