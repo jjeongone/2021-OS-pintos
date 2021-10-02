@@ -397,7 +397,6 @@ thread_get_nice (void)
 void thread_set_load_avg (void)
 {
   int ready_thread = is_idle() ? list_size(&ready_list) : list_size(&ready_list) + 1;
-  // load_avg = ((load_avg)*59 + (ready_thread) * 16384) / 60;
   load_avg = FP_ADD(FP_MUL((CONVERT_TO_FP(59)/60), load_avg), FP_MUL_INT((CONVERT_TO_FP(1)/60), ready_thread));
 }
 
@@ -457,7 +456,7 @@ void update_all_thread_recent_cpu (void)
   for (e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e))
   {
     t = list_entry(e, struct thread, allelem);
-    if (t!= idle_thread)
+    if (t != idle_thread)
     {
       thread_set_recent_cpu(t);
     }

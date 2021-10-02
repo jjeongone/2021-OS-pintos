@@ -1,7 +1,7 @@
 #ifndef THREADS_FIXED_POINT_H
 #define THREADS_FIXED_POINT_H
 
-#define FRACTION 16384      // 1<<14
+#define FRACTION 16384      // 1 << 14
 
 #define CONVERT_TO_FP(n) (n) * (FRACTION)
 #define CONVERT_TO_INT_ZERO(x) (x) / (FRACTION)
