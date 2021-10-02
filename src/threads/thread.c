@@ -372,19 +372,26 @@ thread_get_priority (void)
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED) 
+thread_set_nice (int nice) 
 {
+  enum intr_level old_level;
+  old_level = intr_disable ();
   thread_current()->nice = nice;
   thread_current()->priority = thread_cal_priority(thread_current());
   thread_current()->donated_priority = thread_cal_priority(thread_current());
   reschedule();
+  intr_set_level (old_level);
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  return thread_current()->nice;
+  enum intr_level old_level;
+  old_level = intr_disable ();
+  int get_nice = thread_current()->nice;
+  intr_set_level (old_level);
+  return get_nice;
 }
 
 void thread_set_load_avg (void)
@@ -399,16 +406,16 @@ thread_get_load_avg (void)
 {
   enum intr_level old_level;
   old_level = intr_disable ();
-  int new_load_avg = CONVERT_TO_INT_NEAR(FP_MUL_INT(load_avg, 100));
+  int get_load_avg = CONVERT_TO_INT_NEAR(FP_MUL_INT(load_avg, 100));
   intr_set_level (old_level);
-  return new_load_avg;
+  return get_load_avg;
 }
 
 void thread_set_recent_cpu (struct thread* t)
 {
   if(!is_idle())
   {
-    t->recent_cpu = CONVERT_TO_INT_NEAR(FP_ADD_INT(FP_MUL(FP_DIV(FP_MUL_INT(load_avg, 2) , FP_ADD_INT(FP_MUL_INT(load_avg, 2), 1)), t->recent_cpu), t->nice));
+    t->recent_cpu = FP_ADD_INT(FP_MUL(FP_DIV(FP_MUL_INT(load_avg, 2), FP_ADD_INT(FP_MUL_INT(load_avg, 2), 1)), t->recent_cpu), t->nice);
   }
 }
 
@@ -416,7 +423,11 @@ void thread_set_recent_cpu (struct thread* t)
 int
 thread_get_recent_cpu (void) 
 {
-  return CONVERT_TO_INT_NEAR(FP_MUL_INT(thread_current()->recent_cpu, 100));
+  enum intr_level old_level;
+  old_level = intr_disable ();
+  int get_recent_cpu = CONVERT_TO_INT_NEAR(FP_MUL_INT(thread_current()->recent_cpu, 100));
+  intr_set_level (old_level);
+  return get_recent_cpu;
 }
 
 int thread_cal_priority (struct thread* t)
@@ -434,8 +445,9 @@ void update_all_thread_priority (void)
   for (e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e))
   {
     list_entry(e, struct thread, allelem)->priority = thread_cal_priority(list_entry(e, struct thread, allelem));
-    list_entry(e, struct thread, allelem)->donated_priority = thread_cal_priority(list_entry(e, struct thread, allelem));   
+    list_entry(e, struct thread, allelem)->donated_priority = thread_cal_priority(list_entry(e, struct thread, allelem));
   }
+  reschedule();
 }
 
 void update_all_thread_recent_cpu (void)
@@ -533,12 +545,28 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
-  t->recent_cpu = 0;
-  t->nice = 0;
+  if (t == initial_thread)
+  {
+    t->recent_cpu = 0;
+    t->nice = 0;
+  }
+  else
+  {
+    t->recent_cpu = thread_current()->recent_cpu;
+    t->nice = thread_current()->nice;
+  }
   if (thread_mlfqs)
   {
-    t->priority = thread_cal_priority(t);
-    t->donated_priority = thread_cal_priority(t);
+    if (t == idle_thread)
+    {
+      t->priority = priority;
+      t->donated_priority = priority;
+    }
+    else
+    {
+      t->priority = thread_cal_priority(t);
+      t->donated_priority = thread_cal_priority(t);
+    }
   }
   else
   {
@@ -777,6 +805,14 @@ void restore_priority (struct lock *lock)
 
 void reschedule (void) 
 {
+  if (intr_context ())
+  {
+    if (thread_current()->donated_priority < list_entry(list_begin(&ready_list), struct thread, elem)->donated_priority)
+    {
+      intr_yield_on_return();
+    }
+    return;
+  }
   if (!list_empty(&ready_list) && thread_current()->donated_priority <= list_entry(list_begin(&ready_list), struct thread, elem)->donated_priority)
   {
     thread_yield();

@@ -178,7 +178,6 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-  thread_awake();
   if (thread_mlfqs)
   {
     if (!is_idle())
@@ -195,6 +194,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
       update_all_thread_recent_cpu();
     }
   }
+  thread_awake();
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
