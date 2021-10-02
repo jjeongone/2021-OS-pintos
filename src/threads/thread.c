@@ -397,6 +397,7 @@ thread_get_nice (void)
 void thread_set_load_avg (void)
 {
   int ready_thread = is_idle() ? list_size(&ready_list) : list_size(&ready_list) + 1;
+  // load_avg = ((load_avg)*59 + (ready_thread) * 16384) / 60;
   load_avg = FP_ADD(FP_MUL((CONVERT_TO_FP(59)/60), load_avg), FP_MUL_INT((CONVERT_TO_FP(1)/60), ready_thread));
 }
 
@@ -413,10 +414,7 @@ thread_get_load_avg (void)
 
 void thread_set_recent_cpu (struct thread* t)
 {
-  if(!is_idle())
-  {
-    t->recent_cpu = FP_ADD_INT(FP_MUL(FP_DIV(FP_MUL_INT(load_avg, 2), FP_ADD_INT(FP_MUL_INT(load_avg, 2), 1)), t->recent_cpu), t->nice);
-  }
+  t->recent_cpu = FP_ADD_INT(FP_MUL(FP_DIV(FP_MUL_INT(load_avg, 2), FP_ADD_INT(FP_MUL_INT(load_avg, 2), 1)), t->recent_cpu), t->nice);
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -432,31 +430,37 @@ thread_get_recent_cpu (void)
 
 int thread_cal_priority (struct thread* t)
 {
-  if (t != idle_thread)
-  {
-    return FP_SUB_INT(FP_ADD_INT(-FP_DIV_INT(t->recent_cpu, 4), PRI_MAX), t->nice * 2);
-  }
+  return FP_SUB_INT(FP_ADD_INT(-FP_DIV_INT(t->recent_cpu, 4), PRI_MAX), t->nice * 2);
 }
 
 void update_all_thread_priority (void)
 {
   struct list_elem *e;
+  struct thread *t;
 
   for (e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e))
   {
-    list_entry(e, struct thread, allelem)->priority = thread_cal_priority(list_entry(e, struct thread, allelem));
-    list_entry(e, struct thread, allelem)->donated_priority = thread_cal_priority(list_entry(e, struct thread, allelem));
+    t = list_entry(e, struct thread, allelem);
+    if (t != idle_thread)
+    {
+      t->priority = thread_cal_priority(t);
+      t->donated_priority = thread_cal_priority(t);
+    }
   }
-  reschedule();
 }
 
 void update_all_thread_recent_cpu (void)
 {
   struct list_elem *e;
+  struct thread *t;
 
   for (e = list_begin(&all_list); e != list_end(&all_list); e = list_next(e))
   {
-    thread_set_recent_cpu(list_entry(e, struct thread, allelem));
+    t = list_entry(e, struct thread, allelem);
+    if (t!= idle_thread)
+    {
+      thread_set_recent_cpu(t);
+    }
   }
 }
 
