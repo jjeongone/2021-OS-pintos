@@ -80,3 +80,10 @@ running중인 program file에 write하려는 시도를 무시하도록 해야 �
 ## system call handler
 
 ## basic file system
+
+<hr>
+
+## 이해해야 할 것들
+
+- stack 구조
+- file & inode

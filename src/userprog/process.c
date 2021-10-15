@@ -30,6 +30,12 @@ process_execute (const char *file_name)
 {
   char *fn_copy;
   tid_t tid;
+  char *program_name;
+  char *save_ptr;
+  char *file_name_save;
+  strlcpy(file_name_save, file_name, sizeof file_name);
+
+  program_name = strtok_r (file_name_save, " ", &save_ptr);
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -39,7 +45,7 @@ process_execute (const char *file_name)
   strlcpy (fn_copy, file_name, PGSIZE);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (program_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -53,6 +59,12 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
+  char *program_name;
+  char *save_ptr;
+  char *file_name_save;
+  
+  strlcpy(file_name_save, file_name_, sizeof file_name_);
+  program_name = strtok_r (file_name_save, " ", &save_ptr);
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -462,4 +474,72 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+void argument_passing (char *file_name, void **esp)
+{
+  char *token, *save_ptr;
+  char **argv = (char **)malloc((sizeof char*) * 5);
+  //char **argv = (char **)palloc_get_page(0);
+  int argc = 1;
+
+  char *program_name;
+  char *file_name_save;
+  int i;
+  int size = 0;
+
+  char *initial_esp = *esp;
+  char *argv_start;
+
+  strlcpy(file_name_save, file_name, sizeof file_name);
+  program_name = strtok_r(file_name_save, " ", &save_ptr);
+  argv[0] = program_name;
+
+  for (token = strtok_r(file_name_save, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
+  {
+    argv[argc] = token;
+    argc = argc + 1;
+  }
+
+  for (i = argc; i >= 0; i--)
+  {
+    size = (sizeof argv[i]) + 1;
+    *esp = *esp - size;
+    strlcpy(*esp, argv[i], size);
+  }
+
+  // word align
+  while((uint32_t)(*esp) % 4 != 0) // ?
+  {
+    *esp = *esp - 1;
+  }
+  
+  
+  *esp = *esp - 4; 
+  **((uint32_t**)esp) = 0;
+
+  // argv[3]~argv[0]
+  for (i = argc; i >= 0; i--)
+  {
+    size = (sizeof argv[i]) + 1;
+    initial_esp = initial_esp - size;
+    *esp = *esp - 4;
+    **((uint32_t**)esp) = initial_esp;
+  }
+
+  // argv
+  argv_start = *esp;
+  *esp = *esp - 4;
+  **((uint32_t**)esp) = argv_start;
+
+  // argc
+  *esp = *esp - 4;
+  **((uint32_t**)esp) = agrc;
+
+  // return address
+  *esp = *esp - 4;
+  **((uint32_t**)esp) = 0;
+
+  //palloc_free_page(argv);
+  free(argv);
 }
