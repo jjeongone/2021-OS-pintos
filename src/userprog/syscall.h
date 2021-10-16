@@ -1,19 +1,25 @@
 #ifndef USERPROG_SYSCALL_H
 #define USERPROG_SYSCALL_H
 
+#include <list.h>
+
+typedef int pid_t;
+
 struct file_desc
 {
    int fd;
    struct file *file;
+   struct list_elem felem;
 };
 
 void syscall_init (void);
 void check_address (void *addr);
-static int get_user (const uint8_t *uaddr);
-static bool put_user (uint8_t *udst, uint8_t byte);
-void get_stack_argument (void *esp, int byte_size, char *argument);
+void check_file_address (const char *file);
+int get_user (uint8_t *uaddr);
+bool put_user (uint8_t *udst, uint8_t byte);
+void get_stack_argument (void *esp, int byte_size, void *argument);
 
-void sys_halt();
+void sys_halt (void);
 void sys_exit (int status);
 pid_t sys_exec (const char *cmd_line);
 int sys_wait (pid_t pid);
@@ -26,5 +32,8 @@ int sys_write (int fd, const void *buffer, unsigned size);
 void sys_seek (int fd, unsigned position);
 unsigned sys_tell (int fd);
 void sys_close (int fd);
+
+struct file_desc* get_file_desc(int fd);
+void remove_file_desc(int fd);
 
 #endif /* userprog/syscall.h */

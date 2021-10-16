@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -32,10 +33,10 @@ process_execute (const char *file_name)
   tid_t tid;
   char *program_name;
   char *save_ptr;
-  char *file_name_save;
+  char file_name_save;
 
-  strlcpy(file_name_save, file_name, sizeof file_name);
-  program_name = strtok_r (file_name_save, " ", &save_ptr);
+  strlcpy(&file_name_save, file_name, sizeof file_name);
+  program_name = strtok_r (&file_name_save, " ", &save_ptr);
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -61,10 +62,10 @@ start_process (void *file_name_)
   bool success;
   char *program_name;
   char *save_ptr;
-  char *file_name_save;
+  char file_name_save;
   
-  strlcpy(file_name_save, file_name_, sizeof file_name_);
-  program_name = strtok_r (file_name_save, " ", &save_ptr);
+  strlcpy(&file_name_save, file_name_, sizeof file_name_);
+  program_name = strtok_r (&file_name_save, " ", &save_ptr);
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -503,9 +504,10 @@ install_page (void *upage, void *kpage, bool writable)
 
 void argument_passing (char *file_name, void **esp)
 {
-  char *token, *save_ptr;
-  char **argv = (char **)malloc((sizeof char*) * 5);
-  //char **argv = (char **)palloc_get_page(0);
+  char *token;
+  char *save_ptr;
+  //char **argv = (char **)malloc((sizeof char*) * 5);
+  char **argv = (char **)palloc_get_page(0);
   int argc = 1;
 
   char *program_name;
@@ -539,9 +541,8 @@ void argument_passing (char *file_name, void **esp)
     *esp = *esp - 1;
   }
   
-  
   *esp = *esp - 4; 
-  **((uint32_t**)esp) = 0;
+  **((uint32_t **)esp) = 0;
 
   // argv[3]~argv[0]
   for (i = argc; i >= 0; i--)
@@ -549,22 +550,22 @@ void argument_passing (char *file_name, void **esp)
     size = (sizeof argv[i]) + 1;
     initial_esp = initial_esp - size;
     *esp = *esp - 4;
-    **((uint32_t**)esp) = initial_esp;
+    *((char **)esp) = initial_esp;
   }
 
   // argv
   argv_start = *esp;
   *esp = *esp - 4;
-  **((uint32_t**)esp) = argv_start;
+  *((char **)esp) = argv_start;
 
   // argc
   *esp = *esp - 4;
-  **((uint32_t**)esp) = agrc;
+  **((uint32_t**)esp) = argc;
 
   // return address
   *esp = *esp - 4;
   **((uint32_t**)esp) = 0;
 
-  //palloc_free_page(argv);
-  free(argv);
+  palloc_free_page(argv);
+  //free(argv);
 }

@@ -5,6 +5,11 @@
 #include "threads/thread.h"
 #include "devices/shutdown.h"
 #include "threads/synch.h"
+#include "filesys/file.h"
+#include "filesys/filesys.h"
+#include "threads/vaddr.h"
+#include "userprog/process.h"
+#include "devices/input.h"
 
 static void syscall_handler (struct intr_frame *);
 static struct lock file_lock;
@@ -24,12 +29,19 @@ void check_address (void *addr)
   }
 }
 
+void check_file_address (const char *file)
+{
+  if(file == NULL || !is_user_vaddr(file))
+  {
+    sys_exit(-1);
+  }
+}
+
 /* Reads a byte at user virtual address UADDR.
    UADDR must be below PHYS_BASE.
    Returns the byte value if successful, -1 if a segfault
    occurred. */
-static int
-get_user (const uint8_t *uaddr)
+int get_user (uint8_t *uaddr)
 {
   int result;
   asm ("movl $1f, %0; movzbl %1, %0; 1:"
@@ -40,8 +52,7 @@ get_user (const uint8_t *uaddr)
 /* Writes BYTE to user address UDST.
    UDST must be below PHYS_BASE.
    Returns true if successful, false if a segfault occurred. */
-static bool
-put_user (uint8_t *udst, uint8_t byte)
+bool put_user (uint8_t *udst, uint8_t byte)
 {
   int error_code;
   asm ("movl $1f, %0; movb %b2, %1; 1:"
@@ -49,100 +60,7 @@ put_user (uint8_t *udst, uint8_t byte)
   return error_code != -1;
 }
 
-void get_stack_argument (void *esp, int byte_size, int *argument)
-{
-  int i;
-  uint8_t result;
-
-  check_address(esp);
-  for(i = 0; i < byte_size; i++)
-  {
-    result = get_user(esp + i);
-    if(result == -1)
-    {
-      sys_exit(-1);
-    }
-    *(argument + i) = result;
-  }
-}
-
-static void
-syscall_handler (struct intr_frame *f UNUSED) 
-{
-  int *syscall_num;
-  int *arg0;
-  int *arg1;
-  int *arg2;
-
-  printf ("system call!\n");
-  check_address(f.esp);
-  get_stack_argument(f.esp, 4, syscall_num);
-
-  switch (syscall_num)
-  {
-    case SYS_HALT:
-      sys_halt();
-      break;
-    case SYS_EXIT:
-      get_stack_argument(f.esp + 4, 4, arg0);
-      sys_exit(arg0);
-      break;
-    case SYS_EXEC:
-      get_stack_argument(f.esp + 4, 4, arg0);
-      f->eax = sys_exec(arg0);
-      break;
-    case SYS_WAIT:
-      get_stack_argument(f.esp + 4, 4, arg0);
-      f->eax = sys_wait(arg0);
-      break;
-    case SYS_CREATE:
-      get_stack_argument(f.esp + 4, 4, arg0);
-      get_stack_argument(f.esp + 8, 4, arg1);
-      f->eax = sys_create(arg0, arg1);
-      break;
-    case SYS_REMOVE:
-      get_stack_argument(f.esp + 4, 4, arg0);
-      f->eax = sys_remove(arg0);
-      break;
-    case SYS_OPEN:
-      get_stack_argument(f.esp + 4, 4, arg0);
-      f->eax = sys_open(arg0);
-      break;
-    case SYS_FILESIZE:
-      get_stack_argument(f.esp + 4, 4, arg0);
-      f->eax = sys_filesize(arg0);
-      break;
-    case SYS_READ:
-      get_stack_argument(f.esp + 4, 4, arg0);
-      get_stack_argument(f.esp + 8, 4, arg1);
-      get_stack_argument(f.esp + 12, 4, arg2);
-      f->eax = sys_read(arg0, arg1, arg2);
-      break;
-    case SYS_WRITE:
-      get_stack_argument(f.esp + 4, 4, arg0);
-      get_stack_argument(f.esp + 8, 4, arg1);
-      get_stack_argument(f.esp + 12, 4, arg2);
-      f->eax = sys_write(arg0, arg1, arg2);
-      break;
-    case SYS_SEEK:
-      get_stack_argument(f.esp + 4, 4, arg0);
-      get_stack_argument(f.esp + 8, 4, arg1);
-      sys_seek(arg0, arg1);
-      break;
-    case SYS_TELL:
-      get_stack_argument(f.esp + 4, 4, arg0);
-      f->eax = sys_tell(arg0);
-      break;
-    case SYS_CLOSE:
-      get_stack_argument(f.esp + 4, 4, arg0);
-      sys_close(arg0);
-      break;
-    default:
-  }
-  thread_exit ();
-}
-
-void sys_halt()
+void sys_halt(void)
 {
   shutdown_power_off();
 }
@@ -163,8 +81,7 @@ void sys_exit(int status)
 
 pid_t sys_exec(const char *cmd_line)
 {
-  pid_t pid = process_execute(cmd_line)
-  int value;
+  pid_t pid = process_execute(cmd_line);
   struct list_elem *e;
   struct thread *cur = thread_current();
   struct thread *child;
@@ -180,10 +97,11 @@ pid_t sys_exec(const char *cmd_line)
     {
       child = list_entry(e, struct thread, celem);
       sema_down(&child->initial_sema);
+      return child->is_load_success ? pid : -1;
     }
   }
 
-  return child->is_load_success ? pid : -1;
+  return -1;
 }
 
 int sys_wait (pid_t pid)
@@ -195,7 +113,7 @@ bool sys_create (const char *file, unsigned initial_size)
 {
   bool success;
 
-  check_address(file);
+  check_file_address(file);
   lock_acquire(&file_lock);
   success = filesys_create(file, initial_size);
   lock_release(&file_lock);
@@ -207,10 +125,10 @@ bool sys_remove (const char *file)
 {
   bool success;
 
-  check_address(file);
+  check_file_address(file);
   lock_acquire(&file_lock);
   success = filesys_remove(file);
-  lock_release(&file_lock)
+  lock_release(&file_lock);
 
   return success;
 }
@@ -219,8 +137,9 @@ int sys_open (const char *file)
 {
   struct file *open_file;
   struct file_desc *new_fd;
+  struct thread *cur = thread_current();
   
-  check_address(file);
+  check_file_address(file);
   lock_acquire(&file_lock);
   open_file = filesys_open(file);
   if(open_file == NULL)
@@ -231,11 +150,11 @@ int sys_open (const char *file)
   }
   else
   {
-    file_deny_write(open_file->file);
-    thread_current()->fd_max++;
-    new_fd->fd = thread_current()->fd_max;
+    file_deny_write(open_file);
+    cur->fd_max = cur->fd_max + 1;
+    new_fd->fd = cur->fd_max;
     new_fd->file = open_file;
-    list_push_back(&thread_current->fd_list, &thread_current->felem);
+    list_push_back(&cur->fd_list, &new_fd->felem);
     lock_release(&file_lock);
 
     return new_fd->fd;
@@ -255,7 +174,7 @@ int sys_filesize (int fd)
 int sys_read (int fd, void *buffer, unsigned size)
 {
   int key;
-  int i;
+  unsigned i;
   int read_size;
   struct file_desc* open_file;
 
@@ -350,7 +269,7 @@ void sys_close (int fd)
   lock_release(&file_lock);
 }
 
-struct *file_desc get_file_desc(int fd)
+struct file_desc* get_file_desc(int fd)
 {
   struct thread *cur = thread_current();
   struct list_elem *e;
@@ -377,4 +296,95 @@ void remove_file_desc(int fd)
       list_remove(e);
     }
   }
+}
+
+void get_stack_argument (void *esp, int byte_size, void *argument)
+{
+  int i;
+  int result;
+
+  check_address(esp);
+  for(i = 0; i < byte_size; i++)
+  {
+    result = get_user(esp + i);
+    if(result == -1)
+    {
+      sys_exit(-1);
+    }
+    *(char *)(argument + i) = result;
+  }
+}
+
+static void
+syscall_handler (struct intr_frame *f UNUSED) 
+{
+  int syscall_num;
+  int arg0;
+  int arg1;
+  void *arg2;
+
+  printf ("system call!\n");
+  get_stack_argument(f->esp, 4, &syscall_num);
+
+  switch (syscall_num)
+  {
+    case SYS_HALT:
+      sys_halt();
+      break;
+    case SYS_EXIT:
+      get_stack_argument(f->esp + 4, 4, &arg0);
+      sys_exit((int)arg0);
+      break;
+    case SYS_EXEC:
+      get_stack_argument(f->esp + 4, 4, &arg2);
+      f->eax = sys_exec((const char *)arg2);
+      break;
+    case SYS_WAIT:
+      get_stack_argument(f->esp + 4, 4, &arg0);
+      f->eax = sys_wait((pid_t)arg0);
+      break;
+    case SYS_CREATE:
+      get_stack_argument(f->esp + 4, 4, &arg2);
+      get_stack_argument(f->esp + 8, 4, &arg0);
+      f->eax = sys_create((const char *)arg2, (unsigned)arg0);
+      break;
+    case SYS_REMOVE:
+      get_stack_argument(f->esp + 4, 4, &arg2);
+      f->eax = sys_remove((const char *)arg2);
+      break;
+    case SYS_OPEN:
+      get_stack_argument(f->esp + 4, 4, &arg2);
+      f->eax = sys_open((const char *)arg2);
+      break;
+    case SYS_FILESIZE:
+      get_stack_argument(f->esp + 4, 4, &arg0);
+      f->eax = sys_filesize((int)arg0);
+      break;
+    case SYS_READ:
+      get_stack_argument(f->esp + 4, 4, &arg0);
+      get_stack_argument(f->esp + 8, 4, &arg2);
+      get_stack_argument(f->esp + 12, 4, &arg1);
+      f->eax = sys_read((int)arg0, arg2, (unsigned)arg1);
+      break;
+    case SYS_WRITE:
+      get_stack_argument(f->esp + 4, 4, &arg0);
+      get_stack_argument(f->esp + 8, 4, &arg2);
+      get_stack_argument(f->esp + 12, 4, &arg1);
+      f->eax = sys_write((int)arg0, arg2, (unsigned)arg1);
+      break;
+    case SYS_SEEK:
+      get_stack_argument(f->esp + 4, 4, &arg0);
+      get_stack_argument(f->esp + 8, 4, &arg1);
+      sys_seek((int)arg0, (unsigned)arg1);
+      break;
+    case SYS_TELL:
+      get_stack_argument(f->esp + 4, 4, &arg0);
+      f->eax = sys_tell((int)arg0);
+      break;
+    case SYS_CLOSE:
+      get_stack_argument(f->esp + 4, 4, &arg0);
+      sys_close((int)arg0);
+      break;
+  }
+  thread_exit ();
 }
