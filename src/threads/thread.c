@@ -216,6 +216,12 @@ thread_create (const char *name, int priority,
   {
     thread_unblock (t);
   }
+
+  #ifdef USERPROG
+  t->parent = thread_current();
+  list_push_back(&thread_current()->child_list, &thread_current()->celem);
+  #endif
+
   return tid;
 }
 
@@ -580,6 +586,17 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&t->donated_list);
   t->magic = THREAD_MAGIC;
   t->sleep_ticks = 0;
+
+  #ifdef USERPROG
+  t->exit_status = 0;
+  t->fd_max = 2;
+  t->parent = NULL;
+  t->is_load_success = true;
+  list_init(&t->child_list);
+  list_init(&t->fd_list);
+  sema_init(&t->sema, 0);
+  sema_init(&t->initial_sema, 0);
+  #endif
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

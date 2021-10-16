@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -104,6 +105,17 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    int exit_status;
+    int fd_max;
+    bool is_load_success;
+    
+    struct thread *parent; 
+    struct list child_list;
+    struct list_elem celem;
+    struct list fd_list;
+    struct list_elem felem;
+    struct semaphore sema;
+    struct semaphore initial_sema;
 #endif
 
     /* Owned by thread.c. */

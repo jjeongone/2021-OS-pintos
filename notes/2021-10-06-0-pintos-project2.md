@@ -87,3 +87,12 @@ running중인 program file에 write하려는 시도를 무시하도록 해야 �
 
 - stack 구조
 - file & inode
+
+<hr>
+
+## Argument passing
+- argv malloc시, 입력받은 argument들을 parsing하는 char형 token의 주소값을 저장한다.
+
+## File system
+- check_address 함수로 써도 문제 없을까?
+- process_wait 함수에서 child list remove를 해도 괜찮을까?

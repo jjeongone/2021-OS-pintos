@@ -33,8 +33,8 @@ process_execute (const char *file_name)
   char *program_name;
   char *save_ptr;
   char *file_name_save;
-  strlcpy(file_name_save, file_name, sizeof file_name);
 
+  strlcpy(file_name_save, file_name, sizeof file_name);
   program_name = strtok_r (file_name_save, " ", &save_ptr);
 
   /* Make a copy of FILE_NAME.
@@ -47,7 +47,7 @@ process_execute (const char *file_name)
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (program_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+    palloc_free_page (fn_copy);
   return tid;
 }
 
@@ -71,12 +71,20 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+  success = load (program_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
+  {
+    thread_current()->is_load_success = false;
     thread_exit ();
+  }
+  else
+  {
+    argument_passing(file_name_, &if_.esp);
+  }
+  sema_up(&thread_current()->initial_sema);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -98,8 +106,24 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
+  struct thread *cur = thread_current();
+  struct list_elem *e;
+  struct thread *child;
+  int exit_code;
+
+  for(e = list_begin(&cur->child_list); e != list_end(&cur->child_list); e = list_next(e))
+  {
+    if(list_entry(e, struct thread, celem)->tid == child_tid)
+    {
+      child = list_entry(e, struct thread, celem);
+      sema_down(&child->sema);
+      exit_code = child->exit_status;
+      list_remove(e);
+      return exit_code;
+    }
+  }
   return -1;
 }
 
@@ -125,6 +149,7 @@ process_exit (void)
       cur->pagedir = NULL;
       pagedir_activate (NULL);
       pagedir_destroy (pd);
+      sema_up(&cur->sema);
     }
 }
 
