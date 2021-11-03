@@ -71,10 +71,10 @@ void sys_exit(int status)
 
   printf("%s: exit(%d)\n", cur->name, status);
   cur->exit_status = status;
-  // for(e = list_begin(&cur->fd_list); e != list_end(&cur->fd_list); e = list_next(e))
-  // {
-  //   sys_close(list_entry(e, struct file_desc, felem)->fd);
-  // }
+  for(e = list_begin(&cur->fd_list); e != list_end(&cur->fd_list); e = list_next(e))
+  {
+    sys_close(list_entry(e, struct file_desc, felem)->fd);
+  }
   thread_exit();
 }
 
@@ -176,8 +176,11 @@ int sys_read (int fd, void *buffer, unsigned size)
   int read_size;
   struct file_desc* open_file;
 
+  if(buffer == NULL || !is_user_vaddr(buffer))
+  {
+    sys_exit(-1);
+  }
   lock_acquire(&file_lock);
-
   if(fd == 0)
   {
     for(i = 0; i < size; i++)
@@ -186,11 +189,10 @@ int sys_read (int fd, void *buffer, unsigned size)
       if(!key)
       {
         lock_release(&file_lock);
-        sys_exit(-1);
+        return -1;
       }
     }
     lock_release(&file_lock);
-
     return size;
   }
   else
@@ -198,11 +200,11 @@ int sys_read (int fd, void *buffer, unsigned size)
     open_file = get_file_desc(fd);
     if(open_file == NULL)
     {
-      return -1;
+      lock_release(&file_lock);
+      sys_exit(-1);
     }
     read_size = file_read(open_file->file, buffer, size);
     lock_release(&file_lock);
-
     return read_size;
   }
 }
