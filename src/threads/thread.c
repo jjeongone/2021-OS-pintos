@@ -219,7 +219,7 @@ thread_create (const char *name, int priority,
 
   #ifdef USERPROG
   t->parent = thread_current();
-  list_push_back(&thread_current()->child_list, &thread_current()->celem);
+  list_push_back(&thread_current()->child_list, &t->celem);
   #endif
 
   return tid;

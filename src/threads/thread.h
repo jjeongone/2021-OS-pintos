@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 
 /* States in a thread's life cycle. */
@@ -108,12 +109,11 @@ struct thread
     int exit_status;
     int fd_max;
     bool is_load_success;
-    
+
     struct thread *parent; 
     struct list child_list;
     struct list_elem celem;
     struct list fd_list;
-    struct list_elem felem;
     struct semaphore sema;
     struct semaphore initial_sema;
 #endif

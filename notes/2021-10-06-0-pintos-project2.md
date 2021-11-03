@@ -96,3 +96,14 @@ running중인 program file에 write하려는 시도를 무시하도록 해야 �
 ## File system
 - check_address 함수로 써도 문제 없을까?
 - process_wait 함수에서 child list remove를 해도 괜찮을까?
+
+<hr>
+
+## Sab질 
+
+1. `start_process()` 함수에서 `palloc_free_page()` 순서 이상하게 함
+2. load에서 오류가 난줄알고 삽질삽질 filesys를 탓했지만 argument_passing 이상하게 한거엿
+3. child_list에 넣을때 제대로 잘 넣어야했음 elem 잘쓰기
+4. sema down시켜서 child process wait하는 타이밍 잘 생각하기 -> process_wait에 있어야하는걸 syscall_wait에서 했음
+5. argumnet_passing 짤때: strlen 잘생각하고, iterater생각 잘하고, pointer의 농간에 놀아나지 말기(주소값인지 진짜 값인지), `uint32_t`를 암튼 쓰셈
+6. sys call handler에서 thread_exit()을 call하는게 아니라 user program이 할 수 있도록 둬야한다. 스켈레톤을 신뢰하지 말자...

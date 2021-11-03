@@ -12,7 +12,6 @@
 #include "devices/input.h"
 
 static void syscall_handler (struct intr_frame *);
-static struct lock file_lock;
 
 void
 syscall_init (void) 
@@ -72,10 +71,10 @@ void sys_exit(int status)
 
   printf("%s: exit(%d)\n", cur->name, status);
   cur->exit_status = status;
-  for(e = list_begin(&cur->fd_list); e != list_end(&cur->fd_list); e = list_next(e))
-  {
-    sys_close(list_entry(e, struct file_desc, felem)->fd);
-  }
+  // for(e = list_begin(&cur->fd_list); e != list_end(&cur->fd_list); e = list_next(e))
+  // {
+  //   sys_close(list_entry(e, struct file_desc, felem)->fd);
+  // }
   thread_exit();
 }
 
@@ -90,7 +89,7 @@ pid_t sys_exec(const char *cmd_line)
   {
     return -1;
   }
-
+  // need edit
   for(e = list_begin(&cur->child_list); e != list_end(&cur->child_list); e = list_next(e))
   {
     if(list_entry(e, struct thread, celem)->tid == pid)
@@ -112,7 +111,6 @@ int sys_wait (pid_t pid)
 bool sys_create (const char *file, unsigned initial_size)
 {
   bool success;
-
   check_file_address(file);
   lock_acquire(&file_lock);
   success = filesys_create(file, initial_size);
@@ -136,7 +134,7 @@ bool sys_remove (const char *file)
 int sys_open (const char *file)
 {
   struct file *open_file;
-  struct file_desc *new_fd;
+  struct file_desc *new_fd = palloc_get_page(0);
   struct thread *cur = thread_current();
   
   check_file_address(file);
@@ -145,7 +143,7 @@ int sys_open (const char *file)
   if(open_file == NULL)
   {
     lock_release(&file_lock);
-
+    palloc_free_page(new_fd);
     return -1;
   }
   else
@@ -221,14 +219,13 @@ int sys_write (int fd, const void *buffer, unsigned size)
     console_size = size > 500 ? 500 : size;
     putbuf(buffer, console_size);
     lock_release(&file_lock);
-
     return console_size;
   }
   else
   {
     open_file = get_file_desc(fd);
     write_size = file_write(open_file->file, buffer, size);
-    lock_release(&file_lock);
+    // lock_release(&file_lock);
 
     return write_size;
   }
@@ -263,8 +260,8 @@ void sys_close (int fd)
 
   lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
-  file_close(open_file->file);
   file_allow_write(open_file->file);
+  file_close(open_file->file);
   remove_file_desc(fd);
   lock_release(&file_lock);
 }
@@ -311,7 +308,7 @@ void get_stack_argument (void *esp, int byte_size, void *argument)
     {
       sys_exit(-1);
     }
-    *(char *)(argument + i) = result;
+    *(char *)(argument + i) = result & 0xff;
   }
 }
 
@@ -323,7 +320,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   int arg1;
   void *arg2;
 
-  printf ("system call!\n");
+  // printf ("system call!\n");
   get_stack_argument(f->esp, 4, &syscall_num);
 
   switch (syscall_num)
@@ -386,5 +383,4 @@ syscall_handler (struct intr_frame *f UNUSED)
       sys_close((int)arg0);
       break;
   }
-  thread_exit ();
 }

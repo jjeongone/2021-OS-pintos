@@ -2,6 +2,7 @@
 #define USERPROG_SYSCALL_H
 
 #include <list.h>
+#include "threads/synch.h"
 
 typedef int pid_t;
 
@@ -35,5 +36,7 @@ void sys_close (int fd);
 
 struct file_desc* get_file_desc(int fd);
 void remove_file_desc(int fd);
+
+struct lock file_lock;
 
 #endif /* userprog/syscall.h */

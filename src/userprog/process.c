@@ -8,6 +8,7 @@
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
+#include "userprog/syscall.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -18,6 +19,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include "threads/synch.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -33,10 +35,13 @@ process_execute (const char *file_name)
   tid_t tid;
   char *program_name;
   char *save_ptr;
-  char file_name_save;
+  char file_name_save[128];
+  struct thread *cur = thread_current();
+  struct thread *child;
+  struct list_elem *e;
 
-  strlcpy(&file_name_save, file_name, sizeof file_name);
-  program_name = strtok_r (&file_name_save, " ", &save_ptr);
+  strlcpy(file_name_save, file_name, strlen(file_name) + 1);
+  program_name = strtok_r (file_name_save, " ", &save_ptr);
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -47,6 +52,15 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (program_name, PRI_DEFAULT, start_process, fn_copy);
+  for(e = list_begin(&cur->child_list); e != list_end(&cur->child_list); e = list_next(e))
+  {
+    child = list_entry(e, struct thread, celem);
+    if(child->tid == tid)
+    {
+      sema_down(&child->initial_sema);
+    }
+  }
+
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
   return tid;
@@ -62,30 +76,33 @@ start_process (void *file_name_)
   bool success;
   char *program_name;
   char *save_ptr;
-  char file_name_save;
+  char file_name_save[128];
   
-  strlcpy(&file_name_save, file_name_, sizeof file_name_);
-  program_name = strtok_r (&file_name_save, " ", &save_ptr);
+  strlcpy(file_name_save, file_name_, strlen(file_name_) + 1);
+  program_name = strtok_r (file_name_save, " ", &save_ptr);
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+  lock_acquire(&file_lock);
   success = load (program_name, &if_.eip, &if_.esp);
+  lock_release(&file_lock);
 
   /* If load failed, quit. */
-  palloc_free_page (file_name);
   if (!success) 
   {
     thread_current()->is_load_success = false;
+    sema_up(&thread_current()->initial_sema);
     thread_exit ();
   }
   else
   {
     argument_passing(file_name_, &if_.esp);
+    sema_up(&thread_current()->initial_sema);
   }
-  sema_up(&thread_current()->initial_sema);
+  palloc_free_page (file_name);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -508,29 +525,30 @@ void argument_passing (char *file_name, void **esp)
   char *save_ptr;
   //char **argv = (char **)malloc((sizeof char*) * 5);
   char **argv = (char **)palloc_get_page(0);
-  int argc = 1;
+  int argc = 0;
 
   char *program_name;
-  char *file_name_save;
+  char file_name_save[128];
   int i;
   int size = 0;
 
   char *initial_esp = *esp;
   char *argv_start;
 
-  strlcpy(file_name_save, file_name, sizeof file_name);
+  strlcpy(file_name_save, file_name, strlen(file_name) + 1);
   program_name = strtok_r(file_name_save, " ", &save_ptr);
-  argv[0] = program_name;
+  argv[argc] = program_name;
+  argc = argc + 1;
 
-  for (token = strtok_r(file_name_save, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
+  for (token = strtok_r(NULL, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
   {
     argv[argc] = token;
     argc = argc + 1;
   }
 
-  for (i = argc; i >= 0; i--)
+  for (i = argc - 1; i >= 0; i--)
   {
-    size = (sizeof argv[i]) + 1;
+    size = strlen(argv[i]) + 1;
     *esp = *esp - size;
     strlcpy(*esp, argv[i], size);
   }
@@ -545,18 +563,18 @@ void argument_passing (char *file_name, void **esp)
   **((uint32_t **)esp) = 0;
 
   // argv[3]~argv[0]
-  for (i = argc; i >= 0; i--)
+  for (i = argc - 1; i >= 0; i--)
   {
-    size = (sizeof argv[i]) + 1;
+    size = strlen(argv[i]) + 1;
     initial_esp = initial_esp - size;
     *esp = *esp - 4;
-    *((char **)esp) = initial_esp;
+    **((uint32_t**)esp) = initial_esp;
   }
 
   // argv
   argv_start = *esp;
   *esp = *esp - 4;
-  *((char **)esp) = argv_start;
+  **((uint32_t**)esp) = argv_start;
 
   // argc
   *esp = *esp - 4;
