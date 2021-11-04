@@ -193,7 +193,7 @@ int sys_read (int fd, void *buffer, unsigned size)
   else
   {
     open_file = get_file_desc(fd);
-    if(open_file == NULL)
+    if(open_file == NULL || open_file->file == NULL)
     {
       lock_release(&file_lock);
       sys_exit(-1);
