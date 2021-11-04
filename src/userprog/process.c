@@ -37,6 +37,8 @@ process_execute (const char *file_name)
   char *save_ptr;
   char file_name_save[128];
   struct thread *child;
+  struct list_elem *e;
+  struct thread *cur = thread_current();
 
   strlcpy(file_name_save, file_name, strlen(file_name) + 1);
   program_name = strtok_r (file_name_save, " ", &save_ptr);
@@ -52,6 +54,14 @@ process_execute (const char *file_name)
   tid = thread_create (program_name, PRI_DEFAULT, start_process, fn_copy);
   child = find_child(tid);
   sema_down(&child->initial_sema);
+ 
+  for(e = list_begin(&cur->child_list); e != list_end(&cur->child_list); e = list_next(e))
+  {
+    if(list_entry(e, struct thread, celem)->exit_status == -1)
+    {
+      process_wait(tid);
+    }
+  }
 
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
@@ -92,9 +102,9 @@ start_process (void *file_name_)
   else
   {
     argument_passing(file_name_, &if_.esp);
-    sema_up(&thread_current()->initial_sema);
   }
   palloc_free_page (file_name);
+  sema_up(&thread_current()->initial_sema);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in

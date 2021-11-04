@@ -215,11 +215,14 @@ int sys_write (int fd, const void *buffer, unsigned size)
   {
     sys_exit(-1);
   }
+
+  lock_acquire(&file_lock);
   
   if(fd == 1)
   {
     console_size = size > 500 ? 500 : size;
     putbuf(buffer, console_size);
+    lock_release(&file_lock);
     return console_size;
   }
   else
@@ -227,16 +230,15 @@ int sys_write (int fd, const void *buffer, unsigned size)
     open_file = get_file_desc(fd);
     if(open_file == NULL || open_file->file == NULL)
     {
+      lock_release(&file_lock);
       sys_exit(-1);
     }
-    // lock_acquire(&file_lock);
-    // file_deny_write(open_file->file);
     if(strcmp(cur->name, open_file->file) == 0)
     {
       file_deny_write(open_file->file);
     }
     write_size = file_write(open_file->file, buffer, size);
-    // lock_release(&file_lock);
+    lock_release(&file_lock);
     return write_size;
   }
 }
@@ -273,7 +275,6 @@ void sys_close (int fd)
   if(open_file != NULL)
   {
     file_close(open_file->file);
-    // file_allow_write(open_file->file);
     remove_file_desc(fd);
   }
   lock_release(&file_lock);
