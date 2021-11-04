@@ -143,6 +143,7 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+  struct list_elem *e;
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -156,6 +157,10 @@ process_exit (void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
+      for(e = list_begin(&cur->fd_list); e != list_end(&cur->fd_list); e = list_next(e))
+      {
+        file_close(list_entry(e, struct file_desc, felem)->file);
+      }
       cur->pagedir = NULL;
       pagedir_activate (NULL);
       pagedir_destroy (pd);
@@ -268,6 +273,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
+  // lock_acquire(&file_lock);
   /* Open executable file. */
   file = filesys_open (file_name);
   if (file == NULL) 
@@ -275,7 +281,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
-
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -356,10 +361,12 @@ load (const char *file_name, void (**eip) (void), void **esp)
   *eip = (void (*) (void)) ehdr.e_entry;
 
   success = true;
+  file_deny_write(file);
 
  done:
   /* We arrive here whether the load is successful or not. */
   file_close (file);
+  // lock_release(&file_lock);
   return success;
 }
 

@@ -10,6 +10,7 @@
 #include "threads/vaddr.h"
 #include "userprog/process.h"
 #include "devices/input.h"
+#include "lib/string.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -71,10 +72,10 @@ void sys_exit(int status)
 
   printf("%s: exit(%d)\n", cur->name, status);
   cur->exit_status = status;
-  for(e = list_begin(&cur->fd_list); e != list_end(&cur->fd_list); e = list_next(e))
-  {
-    sys_close(list_entry(e, struct file_desc, felem)->fd);
-  }
+  // for(e = list_begin(&cur->fd_list); e != list_end(&cur->fd_list); e = list_next(e))
+  // {
+  //   sys_close(list_entry(e, struct file_desc, felem)->fd);
+  // }
   thread_exit();
 }
 
@@ -142,7 +143,10 @@ int sys_open (const char *file)
   }
   else
   {
-    // file_deny_write(open_file);
+    if(strcmp(cur->name, file) == 0)
+    {
+      file_deny_write(open_file);
+    }
     cur->fd_max = cur->fd_max + 1;
     new_fd->fd = cur->fd_max;
     new_fd->file = open_file;
@@ -205,6 +209,7 @@ int sys_write (int fd, const void *buffer, unsigned size)
   int write_size;
   struct file_desc* open_file;
   unsigned console_size;
+  struct thread *cur = thread_current();
 
   if(buffer == NULL || !is_user_vaddr(buffer))
   {
@@ -225,6 +230,11 @@ int sys_write (int fd, const void *buffer, unsigned size)
       sys_exit(-1);
     }
     // lock_acquire(&file_lock);
+    // file_deny_write(open_file->file);
+    if(strcmp(cur->name, open_file->file) == 0)
+    {
+      file_deny_write(open_file->file);
+    }
     write_size = file_write(open_file->file, buffer, size);
     // lock_release(&file_lock);
     return write_size;
@@ -260,9 +270,12 @@ void sys_close (int fd)
 
   lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
-  // file_allow_write(open_file->file);
-  file_close(open_file->file);
-  remove_file_desc(fd);
+  if(open_file != NULL)
+  {
+    file_close(open_file->file);
+    // file_allow_write(open_file->file);
+    remove_file_desc(fd);
+  }
   lock_release(&file_lock);
 }
 
