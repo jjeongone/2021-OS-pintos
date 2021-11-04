@@ -81,26 +81,20 @@ void sys_exit(int status)
 pid_t sys_exec(const char *cmd_line)
 {
   pid_t pid = process_execute(cmd_line);
-  struct list_elem *e;
-  struct thread *cur = thread_current();
   struct thread *child;
 
   if(pid == TID_ERROR)
   {
     return -1;
   }
-  // need edit
-  for(e = list_begin(&cur->child_list); e != list_end(&cur->child_list); e = list_next(e))
+  
+  child = find_child(pid);
+  if(child == NULL)
   {
-    if(list_entry(e, struct thread, celem)->tid == pid)
-    {
-      child = list_entry(e, struct thread, celem);
-      sema_down(&child->initial_sema);
-      return child->is_load_success ? pid : -1;
-    }
+    return -1;
   }
 
-  return -1;
+  return child->is_load_success ? pid : -1;
 }
 
 int sys_wait (pid_t pid)
@@ -142,19 +136,18 @@ int sys_open (const char *file)
   open_file = filesys_open(file);
   if(open_file == NULL)
   {
-    lock_release(&file_lock);
     palloc_free_page(new_fd);
+    lock_release(&file_lock);
     return -1;
   }
   else
   {
-    file_deny_write(open_file);
+    // file_deny_write(open_file);
     cur->fd_max = cur->fd_max + 1;
     new_fd->fd = cur->fd_max;
     new_fd->file = open_file;
     list_push_back(&cur->fd_list, &new_fd->felem);
     lock_release(&file_lock);
-
     return new_fd->fd;
   }
 }
@@ -176,11 +169,9 @@ int sys_read (int fd, void *buffer, unsigned size)
   int read_size;
   struct file_desc* open_file;
 
-  if(buffer == NULL || !is_user_vaddr(buffer))
-  {
-    sys_exit(-1);
-  }
+  check_address(buffer);
   lock_acquire(&file_lock);
+
   if(fd == 0)
   {
     for(i = 0; i < size; i++)
@@ -215,20 +206,27 @@ int sys_write (int fd, const void *buffer, unsigned size)
   struct file_desc* open_file;
   unsigned console_size;
 
-  lock_acquire(&file_lock);
+  if(buffer == NULL || !is_user_vaddr(buffer))
+  {
+    sys_exit(-1);
+  }
+  
   if(fd == 1)
   {
     console_size = size > 500 ? 500 : size;
     putbuf(buffer, console_size);
-    lock_release(&file_lock);
     return console_size;
   }
   else
   {
     open_file = get_file_desc(fd);
+    if(open_file == NULL || open_file->file == NULL)
+    {
+      sys_exit(-1);
+    }
+    // lock_acquire(&file_lock);
     write_size = file_write(open_file->file, buffer, size);
     // lock_release(&file_lock);
-
     return write_size;
   }
 }
@@ -262,7 +260,7 @@ void sys_close (int fd)
 
   lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
-  file_allow_write(open_file->file);
+  // file_allow_write(open_file->file);
   file_close(open_file->file);
   remove_file_desc(fd);
   lock_release(&file_lock);

@@ -107,3 +107,4 @@ running중인 program file에 write하려는 시도를 무시하도록 해야 �
 4. sema down시켜서 child process wait하는 타이밍 잘 생각하기 -> process_wait에 있어야하는걸 syscall_wait에서 했음
 5. argumnet_passing 짤때: strlen 잘생각하고, iterater생각 잘하고, pointer의 농간에 놀아나지 말기(주소값인지 진짜 값인지), `uint32_t`를 암튼 쓰셈
 6. sys call handler에서 thread_exit()을 call하는게 아니라 user program이 할 수 있도록 둬야한다. 스켈레톤을 신뢰하지 말자...
+7. bad ptr를 어디 접근할 때 검사하고 exit시켜줘야한다. 그리고 lock release 안하고 가지고 죽지 않도록하기

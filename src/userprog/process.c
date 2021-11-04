@@ -36,9 +36,7 @@ process_execute (const char *file_name)
   char *program_name;
   char *save_ptr;
   char file_name_save[128];
-  struct thread *cur = thread_current();
   struct thread *child;
-  struct list_elem *e;
 
   strlcpy(file_name_save, file_name, strlen(file_name) + 1);
   program_name = strtok_r (file_name_save, " ", &save_ptr);
@@ -52,14 +50,8 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (program_name, PRI_DEFAULT, start_process, fn_copy);
-  for(e = list_begin(&cur->child_list); e != list_end(&cur->child_list); e = list_next(e))
-  {
-    child = list_entry(e, struct thread, celem);
-    if(child->tid == tid)
-    {
-      sema_down(&child->initial_sema);
-    }
-  }
+  child = find_child(tid);
+  sema_down(&child->initial_sema);
 
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
@@ -523,7 +515,6 @@ void argument_passing (char *file_name, void **esp)
 {
   char *token;
   char *save_ptr;
-  //char **argv = (char **)malloc((sizeof char*) * 5);
   char **argv = (char **)palloc_get_page(0);
   int argc = 0;
 
@@ -585,5 +576,21 @@ void argument_passing (char *file_name, void **esp)
   **((uint32_t**)esp) = 0;
 
   palloc_free_page(argv);
-  //free(argv);
+}
+
+struct thread *find_child(tid_t tid)
+{
+  struct thread *cur = thread_current();
+  struct thread *child;
+  struct list_elem *e;
+
+  for(e = list_begin(&cur->child_list); e != list_end(&cur->child_list); e = list_next(e))
+  {
+    child = list_entry(e, struct thread, celem);
+    if(child->tid == tid)
+    {
+      return child;
+    }
+  }
+  return NULL;
 }

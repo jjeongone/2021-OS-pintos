@@ -8,5 +8,6 @@ int process_wait (tid_t);
 void process_exit (void);
 void process_activate (void);
 void argument_passing (char *file_name, void **esp);
+struct thread *find_child(tid_t tid);
 
 #endif /* userprog/process.h */
