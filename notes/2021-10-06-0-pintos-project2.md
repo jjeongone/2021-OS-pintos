@@ -114,3 +114,4 @@ running중인 program file에 write하려는 시도를 무시하도록 해야 �
 1. `process_exit()`에서 뭔가 가지고 있는 file_lock을 해제해줘야 할 것 같아서 해당 코드 추가함 -> multi-oom 에러코드 바뀜
 2. `process_exit()`랑 `process_wait()` 에서 exit_sema 관련한 부분 처리해주니까 syn-write 통과함~!!!!!
 3. 이제 남은건 multi-oom뿐.... 헤헤
+4. `start_process()`에서 `palloc_free_page (file_name);` 추가하니까 총 8개 나오던 oom fail중에 하나 사라짐 -> 아무래도 메모리 효율이 딸리는듯?

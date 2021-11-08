@@ -135,6 +135,11 @@ int sys_open (const char *file)
   struct file_desc *new_fd = palloc_get_page(0);
   struct thread *cur = thread_current();
   
+  if(new_fd == NULL)
+  {
+    return -1;
+  }
+  
   check_file_address(file);
   lock_acquire(&file_lock);
   open_file = filesys_open(file);

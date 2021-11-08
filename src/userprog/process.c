@@ -106,6 +106,7 @@ start_process (void *file_name_)
         list_remove(e);
       }
     }
+    palloc_free_page (file_name);
     sema_up(&cur->initial_sema);
     sys_exit(-1);
     // thread_exit ();
@@ -157,7 +158,7 @@ process_wait (tid_t child_tid)
       exit_code = child->exit_status;
       list_remove(e);
       sema_up(&child->exit_sema);
-      //palloc_free_page(child);
+      palloc_free_page(child);
       return exit_code;
     }
   }
@@ -190,12 +191,14 @@ process_exit (void)
       //   file_close(list_entry(e, struct file_desc, felem)->file);
       //   palloc_free_page(list_entry(e, struct file_desc, felem));
       // }
+
       while(!list_empty(&cur->fd_list))
       {
         e = list_pop_front(&cur->fd_list);
         file_close(list_entry(e, struct file_desc, felem)->file);
         palloc_free_page(list_entry(e, struct file_desc, felem));
       }
+
       if(lock_held_by_current_thread(&file_lock))
       {
         lock_release(&file_lock);
