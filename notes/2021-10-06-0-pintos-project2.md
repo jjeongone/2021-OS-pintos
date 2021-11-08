@@ -108,3 +108,9 @@ running중인 program file에 write하려는 시도를 무시하도록 해야 �
 5. argumnet_passing 짤때: strlen 잘생각하고, iterater생각 잘하고, pointer의 농간에 놀아나지 말기(주소값인지 진짜 값인지), `uint32_t`를 암튼 쓰셈
 6. sys call handler에서 thread_exit()을 call하는게 아니라 user program이 할 수 있도록 둬야한다. 스켈레톤을 신뢰하지 말자...
 7. bad ptr를 어디 접근할 때 검사하고 exit시켜줘야한다. 그리고 lock release 안하고 가지고 죽지 않도록하기
+8. `file_lock`은 read, write, open에만 필요하다.
+
+(11.08 변경사항)
+1. `process_exit()`에서 뭔가 가지고 있는 file_lock을 해제해줘야 할 것 같아서 해당 코드 추가함 -> multi-oom 에러코드 바뀜
+2. `process_exit()`랑 `process_wait()` 에서 exit_sema 관련한 부분 처리해주니까 syn-write 통과함~!!!!!
+3. 이제 남은건 multi-oom뿐.... 헤헤

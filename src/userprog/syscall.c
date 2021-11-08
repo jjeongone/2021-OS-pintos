@@ -11,6 +11,7 @@
 #include "userprog/process.h"
 #include "devices/input.h"
 #include "lib/string.h"
+#include "threads/palloc.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -68,28 +69,30 @@ void sys_halt(void)
 void sys_exit(int status)
 {
   struct thread *cur = thread_current ();
-  struct list_elem *e;
 
   printf("%s: exit(%d)\n", cur->name, status);
   cur->exit_status = status;
-  // for(e = list_begin(&cur->fd_list); e != list_end(&cur->fd_list); e = list_next(e))
-  // {
-  //   sys_close(list_entry(e, struct file_desc, felem)->fd);
-  // }
   thread_exit();
 }
 
 pid_t sys_exec(const char *cmd_line)
 {
-  pid_t pid = process_execute(cmd_line);
+  pid_t pid;
   struct thread *child;
 
+  if(!is_user_vaddr(cmd_line))
+  {
+    sys_exit(-1);
+  }
+  
+  pid = process_execute(cmd_line);
   if(pid == TID_ERROR)
   {
     return -1;
   }
   
   child = find_child(pid);
+  
   if(child == NULL)
   {
     return -1;
@@ -162,6 +165,11 @@ int sys_filesize (int fd)
 
   lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
+  if(open_file == NULL || open_file->file == NULL)
+  {
+    lock_release(&file_lock);
+    return -1;
+  }
   lock_release(&file_lock);
   return file_length(open_file->file);
 }
@@ -184,7 +192,8 @@ int sys_read (int fd, void *buffer, unsigned size)
       if(!key)
       {
         lock_release(&file_lock);
-        return -1;
+        sys_exit(-1);
+        // return -1;
       }
     }
     lock_release(&file_lock);
@@ -196,7 +205,8 @@ int sys_read (int fd, void *buffer, unsigned size)
     if(open_file == NULL || open_file->file == NULL)
     {
       lock_release(&file_lock);
-      sys_exit(-1);
+      // sys_exit(-1);
+      return -1;
     }
     read_size = file_read(open_file->file, buffer, size);
     lock_release(&file_lock);
@@ -231,11 +241,8 @@ int sys_write (int fd, const void *buffer, unsigned size)
     if(open_file == NULL || open_file->file == NULL)
     {
       lock_release(&file_lock);
-      sys_exit(-1);
-    }
-    if(strcmp(cur->name, open_file->file) == 0)
-    {
-      file_deny_write(open_file->file);
+      // sys_exit(-1);
+      return -1;
     }
     write_size = file_write(open_file->file, buffer, size);
     lock_release(&file_lock);
@@ -249,6 +256,11 @@ void sys_seek (int fd, unsigned position)
 
   lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
+  if(open_file == NULL || open_file->file == NULL)
+  {
+    lock_release(&file_lock);
+    sys_exit(-1);
+  }
   file_seek(open_file->file, position);
   lock_release(&file_lock);
 }
@@ -260,6 +272,11 @@ unsigned sys_tell (int fd)
 
   lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
+  if(open_file == NULL || open_file->file == NULL)
+  {
+    lock_release(&file_lock);
+    sys_exit(-1);
+  }
   next_pos = file_tell(open_file->file);
   lock_release(&file_lock);
 
@@ -272,11 +289,13 @@ void sys_close (int fd)
 
   lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
-  if(open_file != NULL)
+  if(open_file == NULL || open_file->file == NULL)
   {
-    file_close(open_file->file);
-    remove_file_desc(fd);
+    lock_release(&file_lock);
+    sys_exit(-1);
   }
+  file_close(open_file->file);
+  remove_file_desc(fd);
   lock_release(&file_lock);
 }
 

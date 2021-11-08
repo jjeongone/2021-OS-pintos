@@ -116,6 +116,8 @@ struct thread
     struct list fd_list;
     struct semaphore sema;
     struct semaphore initial_sema;
+    struct semaphore exit_sema;
+    struct file *run_file;
 #endif
 
     /* Owned by thread.c. */
