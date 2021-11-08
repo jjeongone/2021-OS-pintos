@@ -30,6 +30,14 @@ void check_address (void *addr)
   }
 }
 
+void check_buffer_address (const void *addr)
+{
+  if(addr == NULL || !is_user_vaddr(addr))
+  {
+    sys_exit(-1);
+  }
+}
+
 void check_file_address (const char *file)
 {
   if(file == NULL || !is_user_vaddr(file))
@@ -92,7 +100,6 @@ pid_t sys_exec(const char *cmd_line)
   }
   
   child = find_child(pid);
-  
   if(child == NULL)
   {
     return -1;
@@ -109,11 +116,9 @@ int sys_wait (pid_t pid)
 bool sys_create (const char *file, unsigned initial_size)
 {
   bool success;
-  check_file_address(file);
-  lock_acquire(&file_lock);
-  success = filesys_create(file, initial_size);
-  lock_release(&file_lock);
 
+  check_file_address(file);
+  success = filesys_create(file, initial_size);
   return success;
 }
 
@@ -122,10 +127,7 @@ bool sys_remove (const char *file)
   bool success;
 
   check_file_address(file);
-  lock_acquire(&file_lock);
   success = filesys_remove(file);
-  lock_release(&file_lock);
-
   return success;
 }
 
@@ -139,9 +141,10 @@ int sys_open (const char *file)
   {
     return -1;
   }
-  
+
   check_file_address(file);
   lock_acquire(&file_lock);
+
   open_file = filesys_open(file);
   if(open_file == NULL)
   {
@@ -168,14 +171,11 @@ int sys_filesize (int fd)
 {
   struct file_desc* open_file;
 
-  lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
   if(open_file == NULL || open_file->file == NULL)
   {
-    lock_release(&file_lock);
     return -1;
   }
-  lock_release(&file_lock);
   return file_length(open_file->file);
 }
 
@@ -198,7 +198,6 @@ int sys_read (int fd, void *buffer, unsigned size)
       {
         lock_release(&file_lock);
         sys_exit(-1);
-        // return -1;
       }
     }
     lock_release(&file_lock);
@@ -210,7 +209,6 @@ int sys_read (int fd, void *buffer, unsigned size)
     if(open_file == NULL || open_file->file == NULL)
     {
       lock_release(&file_lock);
-      // sys_exit(-1);
       return -1;
     }
     read_size = file_read(open_file->file, buffer, size);
@@ -226,11 +224,7 @@ int sys_write (int fd, const void *buffer, unsigned size)
   unsigned console_size;
   struct thread *cur = thread_current();
 
-  if(buffer == NULL || !is_user_vaddr(buffer))
-  {
-    sys_exit(-1);
-  }
-
+  check_buffer_address(buffer);
   lock_acquire(&file_lock);
   
   if(fd == 1)
@@ -246,7 +240,6 @@ int sys_write (int fd, const void *buffer, unsigned size)
     if(open_file == NULL || open_file->file == NULL)
     {
       lock_release(&file_lock);
-      // sys_exit(-1);
       return -1;
     }
     write_size = file_write(open_file->file, buffer, size);
@@ -259,15 +252,12 @@ void sys_seek (int fd, unsigned position)
 {
   struct file_desc* open_file;
 
-  lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
   if(open_file == NULL || open_file->file == NULL)
   {
-    lock_release(&file_lock);
     sys_exit(-1);
   }
   file_seek(open_file->file, position);
-  lock_release(&file_lock);
 }
 
 unsigned sys_tell (int fd)
@@ -275,15 +265,12 @@ unsigned sys_tell (int fd)
   unsigned next_pos;
   struct file_desc* open_file;
 
-  lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
   if(open_file == NULL || open_file->file == NULL)
   {
-    lock_release(&file_lock);
     sys_exit(-1);
   }
   next_pos = file_tell(open_file->file);
-  lock_release(&file_lock);
 
   return next_pos;
 }
@@ -292,16 +279,13 @@ void sys_close (int fd)
 {
   struct file_desc* open_file;
 
-  lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
   if(open_file == NULL || open_file->file == NULL)
   {
-    lock_release(&file_lock);
     sys_exit(-1);
   }
   file_close(open_file->file);
   remove_file_desc(fd);
-  lock_release(&file_lock);
 }
 
 struct file_desc* get_file_desc(int fd)
@@ -339,6 +323,7 @@ void get_stack_argument (void *esp, int byte_size, void *argument)
   int result;
 
   check_address(esp);
+
   for(i = 0; i < byte_size; i++)
   {
     result = get_user(esp + i);
@@ -358,7 +343,6 @@ syscall_handler (struct intr_frame *f UNUSED)
   int arg1;
   void *arg2;
 
-  // printf ("system call!\n");
   get_stack_argument(f->esp, 4, &syscall_num);
 
   switch (syscall_num)

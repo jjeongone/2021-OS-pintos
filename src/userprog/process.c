@@ -54,14 +54,6 @@ process_execute (const char *file_name)
   tid = thread_create (program_name, PRI_DEFAULT, start_process, fn_copy);
   child = find_child(tid);
   sema_down(&child->initial_sema);
- 
-  // for(e = list_begin(&cur->child_list); e != list_end(&cur->child_list); e = list_next(e))
-  // {
-  //   if(list_entry(e, struct thread, celem)->exit_status == -1)
-  //   {
-  //     process_wait(tid);
-  //   }
-  // }
 
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
@@ -91,9 +83,7 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  // lock_acquire(&file_lock);
   success = load (program_name, &if_.eip, &if_.esp);
-  // lock_release(&file_lock);
 
   /* If load failed, quit. */
   if (!success) 
@@ -109,7 +99,6 @@ start_process (void *file_name_)
     palloc_free_page (file_name);
     sema_up(&cur->initial_sema);
     sys_exit(-1);
-    // thread_exit ();
   }
   else
   {
@@ -158,7 +147,6 @@ process_wait (tid_t child_tid)
       exit_code = child->exit_status;
       list_remove(e);
       sema_up(&child->exit_sema);
-      palloc_free_page(child);
       return exit_code;
     }
   }
@@ -185,13 +173,6 @@ process_exit (void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
-      
-      // for(e = list_begin(&cur->fd_list); e != list_end(&cur->fd_list); e = list_next(e))
-      // {
-      //   file_close(list_entry(e, struct file_desc, felem)->file);
-      //   palloc_free_page(list_entry(e, struct file_desc, felem));
-      // }
-
       while(!list_empty(&cur->fd_list))
       {
         e = list_pop_front(&cur->fd_list);
@@ -323,7 +304,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
-      // lock_release(&file_lock);
       goto done; 
     }
   /* Read and verify executable header. */
@@ -408,7 +388,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   success = true;
   t->run_file = file;
   file_deny_write(file);
-  // lock_release(&file_lock);
 
  done:
   /* We arrive here whether the load is successful or not. */
@@ -598,7 +577,7 @@ void argument_passing (char *file_name, void **esp)
   }
 
   // word align
-  while((uint32_t)(*esp) % 4 != 0) // ?
+  while((uint32_t)(*esp) % 4 != 0)
   {
     *esp = *esp - 1;
   }
@@ -636,11 +615,7 @@ struct thread *find_child(tid_t tid)
   struct thread *cur = thread_current();
   struct thread *child;
   struct list_elem *e;
-
-  if(list_empty(&cur->child_list))
-  {
-    return NULL;
-  }
+  
   for(e = list_begin(&cur->child_list); e != list_end(&cur->child_list); e = list_next(e))
   {
     child = list_entry(e, struct thread, celem);
