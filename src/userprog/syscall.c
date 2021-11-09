@@ -175,11 +175,14 @@ int sys_filesize (int fd)
 {
   struct file_desc* open_file;
 
+  lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
   if(open_file == NULL || open_file->file == NULL)
   {
+    lock_release(&file_lock);
     return -1;
   }
+  lock_release(&file_lock);
   return file_length(open_file->file);
 }
 
