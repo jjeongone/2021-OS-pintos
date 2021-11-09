@@ -118,7 +118,9 @@ bool sys_create (const char *file, unsigned initial_size)
   bool success;
 
   check_file_address(file);
+  lock_acquire(&file_lock);
   success = filesys_create(file, initial_size);
+  lock_release(&file_lock);
   return success;
 }
 
@@ -127,7 +129,9 @@ bool sys_remove (const char *file)
   bool success;
 
   check_file_address(file);
+  lock_acquire(&file_lock);
   success = filesys_remove(file);
+  lock_release(&file_lock);
   return success;
 }
 
@@ -252,12 +256,15 @@ void sys_seek (int fd, unsigned position)
 {
   struct file_desc* open_file;
 
+  lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
   if(open_file == NULL || open_file->file == NULL)
   {
+    lock_release(&file_lock);
     sys_exit(-1);
   }
   file_seek(open_file->file, position);
+  lock_release(&file_lock);
 }
 
 unsigned sys_tell (int fd)
@@ -265,12 +272,15 @@ unsigned sys_tell (int fd)
   unsigned next_pos;
   struct file_desc* open_file;
 
+  lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
   if(open_file == NULL || open_file->file == NULL)
   {
+    lock_release(&file_lock);
     sys_exit(-1);
   }
   next_pos = file_tell(open_file->file);
+  lock_release(&file_lock);
 
   return next_pos;
 }
@@ -279,13 +289,16 @@ void sys_close (int fd)
 {
   struct file_desc* open_file;
 
+  lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
   if(open_file == NULL || open_file->file == NULL)
   {
+    lock_release(&file_lock);
     sys_exit(-1);
   }
   file_close(open_file->file);
   remove_file_desc(fd);
+  lock_release(&file_lock);
 }
 
 struct file_desc* get_file_desc(int fd)
