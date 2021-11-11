@@ -549,21 +549,14 @@ void argument_passing (char *file_name, void **esp)
   char *save_ptr;
   char **argv = (char **)palloc_get_page(0);
   int argc = 0;
-
-  char *program_name;
   char file_name_save[128];
   int i;
   int size = 0;
-
   char *initial_esp = *esp;
   char *argv_start;
 
   strlcpy(file_name_save, file_name, strlen(file_name) + 1);
-  program_name = strtok_r(file_name_save, " ", &save_ptr);
-  argv[argc] = program_name;
-  argc = argc + 1;
-
-  for (token = strtok_r(NULL, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
+  for (token = strtok_r(file_name_save, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr))
   {
     argv[argc] = token;
     argc = argc + 1;

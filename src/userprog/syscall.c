@@ -336,18 +336,11 @@ void remove_file_desc(int fd)
 void get_stack_argument (void *esp, int byte_size, void *argument)
 {
   int i;
-  int result;
-
-  check_address(esp);
 
   for(i = 0; i < byte_size; i++)
   {
-    result = get_user(esp + i);
-    if(result == -1)
-    {
-      sys_exit(-1);
-    }
-    *(char *)(argument + i) = result & 0xff;
+    check_address(esp + i);
+    *(char *)(argument + i) = get_user(esp + i);
   }
 }
 
