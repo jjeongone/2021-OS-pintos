@@ -118,9 +118,44 @@ parallelism을 고려해야 한다.
 
 ### 2. Stack Growth
 
-stack access가 일어날 때 additional page를 allocate한다
+stack access가 일어날 때 additional page를 allocate한다.
+
+기존 -> user virtual address space에서 single page를 차지함 -> 한정된 자원 -> 근데이제 늘려야하는
+
+
 
 ### 3. Memory Mapped Files 
 
+memory mapped files를 구현해보자!
+
+- mapid_t _mmap (int fd, void *addr)_: process의 virtual address에 fd로 열린 file을 mapping한다.
+  - `file_length != n * PGSIZE`: 남은 byte들에 대해서 값을 0으로 설정해주고, disk에 write할 때 무시할 수 있도록 한다.
+  - `success`: return mapping ID
+  - `fail`: return -1 
+    - 0 byte length인 file일 때
+    - addr이 not page-aligned
+    - overlaps any existing set of mapped pages
+    - executable load time일 때
+    - addr == 0: pintos는 0인 page를 unmapped된 page로 취급
+    - fd == 0 || fd == 1: console input, output은 mapping 안함
+
+- void _munmap (mapid_t mapping)_: mapping에 의해 설계된 mapping을 unmap한다.
+
+mapping된 것들은 process_exit할 때 unmap되어야 한다. mapping이 unmapped되면, process에 의해 written된 page를 file에 written back해줘야 한다.
+
+> :thinking: 이말이 그니까 process에서는 write을 virtual address에 할당된 page에다가 하는거고, 이게 unmapped될 때 비로소 file에 쓴다는 말일까?
+
+file의 close이나 remove는 mapping에 영향을 주지 않는다. 
+
 ### 4. Accessing User Memory 
 
+<hr>
+
+## 잘 모르겠는 어쩌구들
+
+- lazily load pages가 무슨말이지?
+- clock algorithm 제대로 이해하기!
+
+<hr>
+
+## 즐겁고 신나는 VM 구현
