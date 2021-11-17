@@ -120,6 +120,10 @@ struct thread
     struct file *run_file;
 #endif
 
+#ifdef VM
+   struct hash pages;
+#endif
+
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };

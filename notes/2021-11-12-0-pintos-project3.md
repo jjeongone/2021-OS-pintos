@@ -26,6 +26,14 @@
 ### Requirements
 _Lab3 ppt에 따르면, (근데 이거 아닌 것 같은데.. 9페이지이지 않을까 하는 추측)_
 
+1. frame table
+2. lazy loading
+3. supplemental page table
+4. stack growth
+5. file memory mapping
+6. swap table
+7. on process termination
+
 <hr>
 
 ## Memory Terminology
@@ -274,3 +282,30 @@ system call을 호출했을 때 user memory에 접근할 수 있도록 코드를
 <hr>
 
 ## 즐겁고 신나는 VM 구현
+
+### 고민
+- `#ifdef VM` 위치 고민해보기
+- `src/Makefile.build`에서 vm_SRC를 추가했다. 안 돌아가면 의심해보기
+- `#include <hash.h>` lib에 있는 헤더파일은 이렇게 써도 되는건가?
+- page에서 저장한 file에 대한 정보를 이용해서 disk로부터 file을 읽어서 frame의 kernel virtual address에 저장
+
+- `userprog/process.c`의 `load_segment` 함수: frame table을 `palloc_get_page(0)`으로 할당해도 됨?
+
+### TODOs
+- pintos 시작할 때 frame `hash_init` 불러줘야한다
+- struct 할당할때 malloc 사용하는걸로 바꾸기
+
+### 알아야 할 것들
+- `load_segment()` 함수에서 page 할당 frame 할당 어떻게 구현하면 좋은지
+- 결과적으로 frame이랑 page가 서로의 주소를 알아야 하는데 이거 언제 연결시켜줘야 하는지
+- lazy loading?
+
+### 이해한 것
+- user program은 pages(supplemental page table)에서 해당하는 file의 정보를 가지고 있음
+- 아직 frame 할당을 안받음 == PM에 올라오지 않았음
+- user program이 실행되다가 이 file에 접근하려면 page->frame 주소가 비어있음 -> page faule가 발생함
+- 그제서야 lazy load로 인해서 frame 할당이 이루어짐
+- 이때 frame에 자리가 없으면 swap이 일어나는 것
+- load가 완료되면 그제서야 다시 user program을 실행시켜줌
+
+> 그러면 애초에 thread가 init될 때 load시키는 file에 대해서는 frame과 page 연결이 어느 시점에 일어나야 하는가?

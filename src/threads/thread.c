@@ -13,8 +13,14 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "devices/timer.h"
+
 #ifdef USERPROG
 #include "userprog/process.h"
+#endif
+
+#ifdef VM
+#include <hash.h>
+#include "vm/page.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -220,6 +226,10 @@ thread_create (const char *name, int priority,
   #ifdef USERPROG
   t->parent = thread_current();
   list_push_back(&thread_current()->child_list, &t->celem);
+  #endif
+  
+  #ifdef VM
+  hash_init(&pages, page_hash, page_less, NULL);
   #endif
 
   return tid;
