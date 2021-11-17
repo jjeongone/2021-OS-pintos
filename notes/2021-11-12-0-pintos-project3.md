@@ -145,7 +145,7 @@ frame table을 이용하면 eviction policy를 효율적이게 구성할 수 있
 
 user pages에서 사용되는 frames는 "user pool"에 존재해야 하기 때문에 `palloc_get_page(PAL_USER)`를 호출해서 사용해다 한다. 이때 반드시 PAL_USER를 사용해야 한다(안쓰면 "kernel pool"에 allocate할 수 있음 -> test fail할 수 있음)
 
-frame table의 중요한 기능 중 하나는, unused frame을 가지는 것. frame이 꽉차있을 뗴(none is free) frame속의 page를 evict해야 함
+frame table의 중요한 기능 중 하나는, unused frame을 가지는 것. frame이 꽉차있을 때(none is free) frame속의 page를 evict해야 함
 
 swap을 allocat하지 않고는 frame을 evict할 수 없는데, 여기서 또 swap이 꽉찬 경우에는 kernel panic. 실제 OS에서는 이 상황을 극복하는 mechanism, policy 이런게 존재함.
 
@@ -170,6 +170,8 @@ swap을 allocat하지 않고는 frame을 evict할 수 없는데, 여기서 또 s
 두개 이상의 page가 같은 frame을 참조하고 있을 때 alias를 고려해야 한다. aliased frame이 accessed되었을 때 accessed and dirty bit는 하나의 PTE에서만 update된다.(다른 참조하고 있는 녀석들의 PTE는 update되지 않음)
 
 pintos에서는 모든 user virtual page가 kernel virtual page에 aliased 되어 있음. 요거를 잘 manage해줘야 함. 예를 들어, 두 address의 accessed and dirty bit을 모두 check하고 update하는 방식이 있다. 혹은 user data를 user virtual address만을 통해 접근할 수 있도록 하면 kernel은 이 문제를 피할 수 있다.
+
+> 전자로? (간단해보임)
 
 <hr>
 
@@ -210,7 +212,7 @@ int main (int argc UNUSED, char *argv[])
   return 0;
 }
 ```
-mamary mapped file에 의해 어떤 memory 가 사용되고 있는지를 track할 수 있어야 한다. mappped region에서 page fault를 handle할 때 사용됨(mapped file이 overlap을 하지 않도록)
+memory mapped file에 의해 어떤 memory 가 사용되고 있는지를 track할 수 있어야 한다. mappped region에서 page fault를 handle할 때 사용됨(mapped file이 overlap을 하지 않도록)
 
 
 <hr>
@@ -226,7 +228,7 @@ LRU와 같은 global page replacement algorithm 만들기
 parallelism을 고려해야 한다.
 
 - `page_read_bytes == PGSIZE`: page를 요구해야 한다
-- `page_zero_bytes == PGSIZE`: disk로부터 읽어올 필요가 없음. first page fault를 일으켰을 때 0값을 가지는 새 페이지 를 만든다?
+- `page_zero_bytes == PGSIZE`: disk로부터 읽어올 필요가 없음. first page fault를 일으켰을 때 0값을 가지는 새 페이지를 만든다?
 - 그 외: underlying file로부터 initial part of page를 읽음. 나머지는 zero(initial part of the page is to be read from the underlying file and the remainder zeroed.)
 
 <br>
@@ -258,11 +260,13 @@ memory mapped files를 구현해보자!
 
 mapping된 것들은 process_exit할 때 unmap되어야 한다. mapping이 unmapped되면, process에 의해 written된 page를 file에 written back해줘야 한다.
 
-> 이말이 그니까 process에서는 write을 virtual address에 할당된 page에다가 하는거고, 이게 unmapped될 때 비로소 file에 쓴다는 말일까?
+> 이말이 그니까 process에서는 write을 virtual address에 할당된 page에다가 하는거고, 이게 unmapped될 때 비로소 file에 쓴다는 말일까? -> 요거 확인해보기
 
 file의 close이나 remove는 mapping에 영향을 주지 않는다. 한번 mapping되면 munmap이 불리거나 process exit이 되기 전까지 유효하다.
 
 두개 이상의 process가 같은 file을 map했을 때: 그냥 같은 physical page를 보도록 하면 됨. 
+
+> 그러면 mmap이 copy-on-write 기능을 제공해야한다는 말임? 이거까지 하면 넘 헤비한디;; -> 확인해보기
 
 <br>
 
@@ -270,7 +274,9 @@ file의 close이나 remove는 mapping에 영향을 주지 않는다. 한번 mapp
 
 system call을 호출했을 때 user memory에 접근할 수 있도록 코드를 수정해야 한다. user memory에 접근할 때 kernel은 page fault을 handle할 수 있거나, prvent해야 한다. device driver에 의해 acquired된 lock을 포함하는 resource를 hold하고있는 동안 page fault를 막아야 한다.
 
-이거를 하기 위해서는 access가 발생하는 코드와 page evictino code의 cooperation이 요구된다. frame table을 pagerk evict되면 안되는 것을 포함하는지를 record 하도록 확장할 수 있다.(pinning, locking) Pinning은 page replacement algorithm의 선택을 제한할 수 있음. 필요하지 않은 곳에서 pinning page를 피해라는데 무슨말이지.
+이거를 하기 위해서는 access가 발생하는 코드와 page eviction code의 cooperation이 요구된다. frame table을 pagerk evict되면 안되는 것을 포함하는지를 record 하도록 확장할 수 있다.(pinning, locking) Pinning은 page replacement algorithm의 선택을 제한할 수 있음. 필요하지 않은 곳에서 pinning page를 피해라는데 무슨말이지.
+
+> pinning을 사용한다면, bitmap을 이용해서 eviction algorithm이 돌아갈 때 evict되면 안되는 녀석들을 확인해서 잘 걸러주는 방식으로 구현하면 될듯?
 
 <hr>
 
@@ -309,3 +315,18 @@ system call을 호출했을 때 user memory에 접근할 수 있도록 코드를
 - load가 완료되면 그제서야 다시 user program을 실행시켜줌
 
 > 그러면 애초에 thread가 init될 때 load시키는 file에 대해서는 frame과 page 연결이 어느 시점에 일어나야 하는가?
+
+## Design
+
+### supplemental page table를 어떻게 구현?
+
+thread -> page list를 구현
+
+page
+- mapping된 fd?
+- 
+
+### frame table을 어떻게 구성할 것인가(Data Struct)
+
+### swap table을 어떻게 구현?
+
