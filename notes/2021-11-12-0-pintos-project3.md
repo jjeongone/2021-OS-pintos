@@ -299,6 +299,8 @@ system call을 호출했을 때 user memory에 접근할 수 있도록 코드를
 
 ### TODOs
 - pintos 시작할 때 frame `hash_init` 불러줘야한다
+  - frame_init() 함수 만들기
+  - supp_page_init() 함수도 만들기
 - struct 할당할때 malloc 사용하는걸로 바꾸기
 
 ### 알아야 할 것들
