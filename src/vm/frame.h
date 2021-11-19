@@ -2,6 +2,7 @@
 #define VM_FRAME_H
 
 #include "vm/page.h"
+#include <hash.h>
 
 struct frame {
     struct page *page;          /* mapped page table entry */
@@ -13,12 +14,12 @@ struct frame {
 };
 
 /* use hash struct(provided by stanford pintos document) */
-unsigned frame_hash (const struct hash_elem *p_, void *aux UNUSED);
-bool frame_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
-struct page *frame_lookup (const void *address);
+// unsigned frame_hash (const struct hash_elem *p_, void *aux UNUSED);
+// bool frame_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
+// struct page *frame_lookup (const void *address);
 
-struct frame *frame_create();
-void frame_destroy(uint32_t *frame);
+struct frame *frame_create(void);
+void frame_destroy(struct frame *frame);
 bool set_page_frame(struct page *page);
 
 #endif

@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/synch.h"
+#include <hash.h>
 
 
 /* States in a thread's life cycle. */
@@ -121,7 +122,7 @@ struct thread
 #endif
 
 #ifdef VM
-   struct hash pages;
+   struct hash spt;
 #endif
 
     /* Owned by thread.c. */

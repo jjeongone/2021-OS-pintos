@@ -330,5 +330,7 @@ page
 
 ### frame table을 어떻게 구성할 것인가(Data Struct)
 
+- frame table에서는 hash로 관리가 안 필요한 것 같음!
+
 ### swap table을 어떻게 구현?
 

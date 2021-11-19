@@ -6,6 +6,9 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/syscall.h"
+#include "filesys/file.h"
+#include "filesys/filesys.h"
+#include "vm/page.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -157,6 +160,11 @@ page_fault (struct intr_frame *f)
      sys_exit(-1);
   }
 
+   if(is_lazy_loading)
+   {
+      return;
+   }
+
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
@@ -166,4 +174,39 @@ page_fault (struct intr_frame *f)
           write ? "writing" : "reading",
           user ? "user" : "kernel");
   kill (f);
+}
+
+bool is_lazy_loading(void *addr)
+{
+   size_t page_read_bytes;
+   size_t page_zero_bytes;
+   struct page *cur_page = page_lookup(addr);
+   struct frame *cur_frame = cur_page->frame;
+
+   /* How to handle all_zero page? */
+   if(cur_page == NULL)
+   {
+      return false;
+   }
+   
+   /* load file */
+   if(!set_page_frame(cur_page))
+   {
+      free(new_page);
+      return false;
+   }
+   
+   page_read_bytes = cur_page->read_bytes < PGSIZE ? cur_page->read_bytes : PGSIZE;
+   page_zero_bytes = PGSIZE - page_read_bytes;
+   if (file_read (cur_page->file, cur_frame->kernel_vaddr, cur_frame->read_bytes) != (int) page_read_bytes)
+   {
+      page_destroy(cur_page);
+      return false;
+   }
+   memset (cur_frame->kernel_vaddr + page_read_bytes, 0, page_zero_bytes);
+   if (!install_page(cur_page->vaddr, cur_frame->kernel_vaddr, cur_page->writable)) 
+   {
+      page_destroy(cur_page);
+      return false; 
+   }
 }

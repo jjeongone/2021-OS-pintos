@@ -19,7 +19,6 @@
 #endif
 
 #ifdef VM
-#include <hash.h>
 #include "vm/page.h"
 #endif
 
@@ -229,7 +228,7 @@ thread_create (const char *name, int priority,
   #endif
   
   #ifdef VM
-  hash_init(&pages, page_hash, page_less, NULL);
+  spt_hash_init();
   #endif
 
   return tid;
