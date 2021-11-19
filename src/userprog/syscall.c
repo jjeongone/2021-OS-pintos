@@ -413,5 +413,9 @@ syscall_handler (struct intr_frame *f UNUSED)
       get_stack_argument(f->esp + 4, 4, &arg0);
       sys_close((int)arg0);
       break;
+    case SYS_MMAP:
+      break;
+    case SYS_MUNMAP:
+      break;
   }
 }

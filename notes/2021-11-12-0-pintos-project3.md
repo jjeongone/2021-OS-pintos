@@ -334,3 +334,32 @@ page
 
 ### swap table을 어떻게 구현?
 
+- page fault handler
+- frame 만들고 없애고, page를 받았을 때 frame을 set해주는 함수 선언
+- struct thread에 hash table 형식으로 spt를 만들고 이를 초기화, 없애는 함수 선언
+- page 하나 없애는 함수 선언
+- page type을 3가지로 구분하였다: all zero, swap, file
+- 그래서 각각을 set하는 함수를 따로 만들어줬음!
+
+### 11/19 (목) 진행사항
+- process.c에서 start_process 함수에서 load 호출
+- load에서 load_segment 호출
+- set_file_spt를 이용해서 sup page를 만듦. 얘는 파일에서 읽어오는거라 관련 설정.
+- 그래서 page fault가 나면 exception.c에서 is_lazy_loading인걸 확인
+- set_page_frame을 통해서 해당하는 page에다가 frame(physical memory) 할당
+- 그 physical memory에 file을 disk로부터 load해온다
+
+### 앞으로 해야할 것
+- (카이스트 깃북 기준) stack growth: 구현하면 stack-growth 테스트 케이스 통과
+  - stack growth가 일어나야하는 상황인지 확인, 일어나야한다면 가능한지 여부 return
+    - 꽉 찼는지, 꽉 찼다면 새로운 page를 할당할 수 있는 상태인지?
+  - file을 작성하는데 충분한 만큼의 page를 size가 PGSIZE의 배수가 되도록 할당
+- memory mapped files
+  - mmap, munmap syscall 구현하기
+  - syscall_handler에서 argument 넘겨주고 각 함수 구현
+  - 카이스트 깃북이랑 stanford 스켈레톤이 다르다! 뭐 따라갈지 결정
+  - map struct? list?
+- swap in/out
+  - all_zero, file을 구별해서 swap in/out 구현
+  - clock algorithm 구현
+  - resource free 잘 생각하기!
