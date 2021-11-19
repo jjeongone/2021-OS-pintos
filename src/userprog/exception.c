@@ -9,12 +9,16 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "vm/page.h"
+#include "vm/frame.h"
+#include <string.h>
+#include "userprog/pagedir.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
+bool is_lazy_loading(void *addr);
 
 /* Registers handlers for interrupts that can be caused by user
    programs.
@@ -160,7 +164,7 @@ page_fault (struct intr_frame *f)
      sys_exit(-1);
   }
 
-   if(is_lazy_loading)
+   if(is_lazy_loading(pg_round_down(fault_addr)))
    {
       return;
    }
@@ -188,25 +192,46 @@ bool is_lazy_loading(void *addr)
    {
       return false;
    }
+
+   page_read_bytes = cur_page->read_bytes < PGSIZE ? cur_page->read_bytes : PGSIZE;
+   page_zero_bytes = PGSIZE - page_read_bytes;
+
+   /* all zero page == anonymous page */
+   // if(page_zero_bytes == PGSIZE && check_bss_address(addr))
+   if(page_zero_bytes == PGSIZE)
+   {
+      if(!set_all_zero_spt((uint8_t *)addr, page_zero_bytes))
+      {
+         page_destroy(cur_page);
+         return false;
+      }
+      return true;
+   }
    
    /* load file */
    if(!set_page_frame(cur_page))
    {
-      free(new_page);
+      page_destroy(cur_page);
       return false;
    }
-   
-   page_read_bytes = cur_page->read_bytes < PGSIZE ? cur_page->read_bytes : PGSIZE;
-   page_zero_bytes = PGSIZE - page_read_bytes;
-   if (file_read (cur_page->file, cur_frame->kernel_vaddr, cur_frame->read_bytes) != (int) page_read_bytes)
+   if (file_read (cur_page->file, cur_frame->kernel_vaddr, cur_page->read_bytes) != (int) page_read_bytes)
    {
       page_destroy(cur_page);
       return false;
    }
    memset (cur_frame->kernel_vaddr + page_read_bytes, 0, page_zero_bytes);
-   if (!install_page(cur_page->vaddr, cur_frame->kernel_vaddr, cur_page->writable)) 
+   
+   // if (!install_page(cur_page->vaddr, cur_frame->kernel_vaddr, cur_page->writable)) 
+   if(!(pagedir_set_page (thread_current()->pagedir, cur_page->vaddr, cur_frame->kernel_vaddr, cur_page->writable)))
    {
       page_destroy(cur_page);
       return false; 
    }
+   return true;
 }
+
+// /* need? */
+// bool check_bss_address(void *addr)
+// {
+//    return true;
+// }

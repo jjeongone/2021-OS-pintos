@@ -10,4 +10,7 @@ void process_activate (void);
 void argument_passing (char *file_name, void **esp);
 struct thread *find_child(tid_t tid);
 
+/* load() helpers. */
+static bool install_page (void *upage, void *kpage, bool writable);
+
 #endif /* userprog/process.h */

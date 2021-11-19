@@ -399,9 +399,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   return success;
 }
 
-/* load() helpers. */
-
-static bool install_page (void *upage, void *kpage, bool writable);
 
 /* Checks whether PHDR describes a valid, loadable segment in
    FILE and returns true if so, false otherwise. */
@@ -517,18 +514,27 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp) 
 {
-  uint8_t *kpage;
   bool success = false;
+  void *upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
+  struct thread *cur = thread_current();
+  struct page *new_page = malloc(sizeof(struct page));
+  if(new_page == NULL)
+  {
+    return success;
+  }
 
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  if (kpage != NULL) 
-    {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
-        *esp = PHYS_BASE;
-      else
-        palloc_free_page (kpage);
-    }
+  set_page_frame(new_page);
+  set_all_zero_spt((uint8_t *)upage, PGSIZE);
+  
+  success = install_page (upage, (uint8_t *)new_page->frame->kernel_vaddr, true);
+  if(success)
+  {
+    *esp = PHYS_BASE;
+  }
+  else
+  {
+    page_destroy(new_page);
+  }
   return success;
 }
 

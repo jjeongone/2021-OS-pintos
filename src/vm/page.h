@@ -32,13 +32,14 @@ struct page {
 /* use hash struct(provided by stanford pintos document) */
 unsigned page_hash (const struct hash_elem *p_, void *aux);
 bool page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux);
-struct page *page_lookup (const void *address);
+struct page *page_lookup (void *address);
 
 /* funtion definition */
-void spt_hash_init ();
+void spt_hash_init (void);
+void spt_hash_destroy(void);
 void page_destroy(struct page *page);
 bool set_file_spt (uint8_t *upage, struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable);
-bool set_all_zero_spt (uint8_t *upage, struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable);
+bool set_all_zero_spt (uint8_t *upage, uint32_t zero_bytes);
 bool set_swap_spt (uint8_t *upage, struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable);
 
 #endif
