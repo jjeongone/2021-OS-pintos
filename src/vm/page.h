@@ -39,7 +39,7 @@ void spt_hash_init (void);
 void spt_hash_destroy(void);
 void page_destroy(struct page *page);
 bool set_file_spt (uint8_t *upage, struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable);
-bool set_all_zero_spt (uint8_t *upage, uint32_t zero_bytes);
+bool set_all_zero_spt (uint8_t *upage);
 bool set_swap_spt (uint8_t *upage, struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable);
 
 #endif

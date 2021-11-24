@@ -23,23 +23,25 @@ bool page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *au
    or a null pointer if no such page exists. */
 struct page *page_lookup (void *address)
 {
-  struct page p;
+  struct page *p = (struct page *)malloc(sizeof(struct page));
   struct hash_elem *e;
   struct thread *cur = thread_current();
 
-  p.vaddr = address;
-  e = hash_find (&cur->spt, &p.helem);
+  p->vaddr = address;
+  e = hash_find (cur->spt, &p->helem);
+  free(p);
   return e != NULL ? hash_entry (e, struct page, helem) : NULL;
 }
 
 void spt_hash_init (void)
 {
-  hash_init(&thread_current()->spt, page_hash, page_less, NULL);
+  thread_current()->spt = (struct hash *)malloc(sizeof(struct hash));
+  hash_init(thread_current()->spt, page_hash, page_less, NULL);
 }
 
 void spt_hash_destroy(void)
 {
-  struct hash *h = &thread_current()->spt;
+  struct hash *h = thread_current()->spt;
   size_t i;
 
   for (i = 0; i < h->bucket_cnt; i++) 
@@ -63,7 +65,7 @@ void page_destroy(struct page *page)
     return;
   }
   frame_destroy(page->frame);
-  palloc_free_page(page->vaddr);
+  // palloc_free_page(page->vaddr);
   /* file close? */
   free(page);
 }
@@ -71,7 +73,8 @@ void page_destroy(struct page *page)
 bool set_file_spt (uint8_t *upage, struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable)
 {
   struct thread *cur = thread_current();
-  struct page *new_page = malloc(sizeof(struct page));
+  struct page *new_page = (struct page *)malloc(sizeof(struct page));
+
   if(new_page == NULL)
   {
     return false;
@@ -86,12 +89,18 @@ bool set_file_spt (uint8_t *upage, struct file *file, off_t ofs, uint32_t read_b
   new_page->writable = writable;
   new_page->dirty = false;
 
-  hash_insert(&cur->spt, &new_page->helem);
-
-  return true;
+  if(hash_insert(cur->spt, &new_page->helem) == NULL)
+  {
+    printf("hash_insert true\n");
+    return true;
+  }
+  else
+  {
+    return false;
+  }
 }
 
-bool set_all_zero_spt (uint8_t *upage, uint32_t zero_bytes)
+bool set_all_zero_spt (uint8_t *upage)
 {
   struct thread *cur = thread_current();
   struct page *new_page = malloc(sizeof(struct page));
@@ -105,11 +114,11 @@ bool set_all_zero_spt (uint8_t *upage, uint32_t zero_bytes)
   new_page->file = NULL;
   new_page->file_offset = -1;
   new_page->read_bytes = -1;
-  new_page->zero_bytes = zero_bytes;
+  new_page->zero_bytes = -1;
   new_page->writable = true;
   new_page->dirty = false;
 
-  hash_insert(&cur->spt, &new_page->helem);
+  hash_insert(cur->spt, &new_page->helem);
 
   return true;
 }

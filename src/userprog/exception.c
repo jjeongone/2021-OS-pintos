@@ -135,6 +135,7 @@ page_fault (struct intr_frame *f)
   bool write;        /* True: access was write, false: access was read. */
   bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
+  void *initial_addr;
 
   /* Obtain faulting address, the virtual address that was
      accessed to cause the fault.  It may point to code or to
@@ -157,17 +158,33 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  if(!user || !is_user_vaddr(fault_addr) || not_present)
+  if(!user || !is_user_vaddr(fault_addr))
   {
+     printf("invalid address\n");
      f->eip = (void *) f->eax;
      f->eax = 0xffffffff;
      sys_exit(-1);
   }
 
-   if(is_lazy_loading(pg_round_down(fault_addr)))
-   {
-      return;
-   }
+  if(not_present)
+  {
+     initial_addr = (void *)pg_round_down(fault_addr);
+     if(is_lazy_loading(initial_addr))
+     {
+        return;
+     }
+     else
+     {
+        sys_exit(-1);
+     }
+  }
+
+  printf("page fault\n");
+
+   // if(not_present && is_lazy_loading(pg_round_down(fault_addr)))
+   // {
+   //    return;
+   // }
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
@@ -182,53 +199,67 @@ page_fault (struct intr_frame *f)
 
 bool is_lazy_loading(void *addr)
 {
+   printf("is_lazy_loading: %p\n", addr);
    size_t page_read_bytes;
    size_t page_zero_bytes;
    struct page *cur_page = page_lookup(addr);
-   struct frame *cur_frame = cur_page->frame;
+   struct frame *cur_frame;
+   struct thread *cur = thread_current();
 
    /* How to handle all_zero page? */
-   if(cur_page == NULL)
-   {
-      return false;
-   }
+   // if(cur_page == NULL)
+   // {
+   //    printf("cur_page == NULL\n");
+   //    return false;
+   // }
 
-   page_read_bytes = cur_page->read_bytes < PGSIZE ? cur_page->read_bytes : PGSIZE;
-   page_zero_bytes = PGSIZE - page_read_bytes;
+   
 
    /* all zero page == anonymous page */
    // if(page_zero_bytes == PGSIZE && check_bss_address(addr))
-   if(page_zero_bytes == PGSIZE)
+   if(cur_page == NULL)
    {
-      if(!set_all_zero_spt((uint8_t *)addr, page_zero_bytes))
+      printf("cur_page == NULL\n");
+      if(!set_all_zero_spt((uint8_t *)addr))
       {
+         printf("set all zero spt fail\n");
          page_destroy(cur_page);
          return false;
       }
+      printf("set all zero spt success\n");
       return true;
    }
    
+   page_read_bytes = cur_page->read_bytes < PGSIZE ? cur_page->read_bytes : PGSIZE;
+   page_zero_bytes = PGSIZE - page_read_bytes;
+
    /* load file */
    if(!set_page_frame(cur_page))
    {
       page_destroy(cur_page);
+      // printf("set_page_frame fail\n");
       return false;
    }
-   if (file_read (cur_page->file, cur_frame->kernel_vaddr, cur_page->read_bytes) != (int) page_read_bytes)
+   cur_frame = cur_page->frame;
+   if (file_read (cur_page->file, cur_frame->kernel_vaddr, page_read_bytes) != (int) page_read_bytes)
    {
       page_destroy(cur_page);
+      // printf("file_read fail\n");
       return false;
    }
    memset (cur_frame->kernel_vaddr + page_read_bytes, 0, page_zero_bytes);
    
    // if (!install_page(cur_page->vaddr, cur_frame->kernel_vaddr, cur_page->writable)) 
-   if(!(pagedir_set_page (thread_current()->pagedir, cur_page->vaddr, cur_frame->kernel_vaddr, cur_page->writable)))
+   if(!(pagedir_set_page (cur->pagedir, cur_page->vaddr, cur_frame->kernel_vaddr, cur_page->writable)))
    {
       page_destroy(cur_page);
+      // printf("pagedir fail\n");
       return false; 
    }
+   // printf("true\n");
    return true;
 }
+
 
 // /* need? */
 // bool check_bss_address(void *addr)

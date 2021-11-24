@@ -296,6 +296,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   bool success = false;
   int i;
 
+  spt_hash_init();
+
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
@@ -467,6 +469,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
+  printf("upage: %p\n", upage);
+
   // file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
     {
@@ -475,7 +479,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
          and zero the final PAGE_ZERO_BYTES bytes. */
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
-
       /* Get a page of memory. */
       if (!set_file_spt(upage, file, ofs, read_bytes, zero_bytes, writable))
       {
@@ -497,15 +500,15 @@ setup_stack (void **esp)
 {
   bool success = false;
   void *upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
+  printf("setup_stack upage: %p\n", upage);
   struct thread *cur = thread_current();
   struct page *new_page = malloc(sizeof(struct page));
   if(new_page == NULL)
   {
     return success;
   }
-
   set_page_frame(new_page);
-  set_all_zero_spt((uint8_t *)upage, PGSIZE);
+  set_all_zero_spt((uint8_t *)upage);
   
   success = install_page (upage, (uint8_t *)new_page->frame->kernel_vaddr, true);
   if(success)

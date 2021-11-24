@@ -227,9 +227,9 @@ thread_create (const char *name, int priority,
   list_push_back(&thread_current()->child_list, &t->celem);
   #endif
   
-  #ifdef VM
-  spt_hash_init();
-  #endif
+  // #ifdef VM
+  // spt_hash_init();
+  // #endif
 
   return tid;
 }
