@@ -160,7 +160,7 @@ page_fault (struct intr_frame *f)
 
   if(!user || !is_user_vaddr(fault_addr))
   {
-     printf("invalid address\n");
+   //   printf("invalid address\n");
      f->eip = (void *) f->eax;
      f->eax = 0xffffffff;
      sys_exit(-1);
@@ -199,7 +199,7 @@ page_fault (struct intr_frame *f)
 
 bool is_lazy_loading(void *addr)
 {
-   printf("is_lazy_loading: %p\n", addr);
+   // printf("is_lazy_loading: %p\n", addr);
    size_t page_read_bytes;
    size_t page_zero_bytes;
    struct page *cur_page = page_lookup(addr);
@@ -207,56 +207,44 @@ bool is_lazy_loading(void *addr)
    struct thread *cur = thread_current();
 
    /* How to handle all_zero page? */
-   // if(cur_page == NULL)
-   // {
-   //    printf("cur_page == NULL\n");
-   //    return false;
-   // }
-
-   
-
-   /* all zero page == anonymous page */
-   // if(page_zero_bytes == PGSIZE && check_bss_address(addr))
    if(cur_page == NULL)
    {
-      printf("cur_page == NULL\n");
-      if(!set_all_zero_spt((uint8_t *)addr))
-      {
-         printf("set all zero spt fail\n");
-         page_destroy(cur_page);
-         return false;
-      }
-      printf("set all zero spt success\n");
-      return true;
+      // printf("cur_page == NULL\n");
+      return false;
    }
    
-   page_read_bytes = cur_page->read_bytes < PGSIZE ? cur_page->read_bytes : PGSIZE;
-   page_zero_bytes = PGSIZE - page_read_bytes;
+   // page_read_bytes = cur_page->read_bytes < PGSIZE ? cur_page->read_bytes : PGSIZE;
+   // page_zero_bytes = PGSIZE - page_read_bytes;
+   page_read_bytes = cur_page->read_bytes;
+   page_zero_bytes = cur_page->zero_bytes;
 
-   /* load file */
    if(!set_page_frame(cur_page))
    {
       page_destroy(cur_page);
-      // printf("set_page_frame fail\n");
       return false;
    }
-   cur_frame = cur_page->frame;
-   if (file_read (cur_page->file, cur_frame->kernel_vaddr, page_read_bytes) != (int) page_read_bytes)
+
+   if(cur_page->type == FILE)
    {
-      page_destroy(cur_page);
-      // printf("file_read fail\n");
-      return false;
+      cur_frame = cur_page->frame;
+      
+      // file_seek(cur_page->file, cur_page->file_offset);
+      // if (file_read (cur_page->file, cur_frame->kernel_vaddr, page_read_bytes) != (int) page_read_bytes)
+      if(file_read_at (cur_page->file, cur_frame->kernel_vaddr, page_read_bytes, cur_page->file_offset) != (int) page_read_bytes)
+      {
+         page_destroy(cur_page);
+         return false;
+      }
+
+      memset (cur_frame->kernel_vaddr + page_read_bytes, 0, page_zero_bytes);
+      
+      if(!(pagedir_set_page (cur->pagedir, cur_page->vaddr, cur_frame->kernel_vaddr, cur_page->writable)))
+      {
+         page_destroy(cur_page);
+         return false; 
+      }
    }
-   memset (cur_frame->kernel_vaddr + page_read_bytes, 0, page_zero_bytes);
-   
-   // if (!install_page(cur_page->vaddr, cur_frame->kernel_vaddr, cur_page->writable)) 
-   if(!(pagedir_set_page (cur->pagedir, cur_page->vaddr, cur_frame->kernel_vaddr, cur_page->writable)))
-   {
-      page_destroy(cur_page);
-      // printf("pagedir fail\n");
-      return false; 
-   }
-   // printf("true\n");
+
    return true;
 }
 

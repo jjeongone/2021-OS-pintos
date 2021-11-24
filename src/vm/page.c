@@ -91,7 +91,7 @@ bool set_file_spt (uint8_t *upage, struct file *file, off_t ofs, uint32_t read_b
 
   if(hash_insert(cur->spt, &new_page->helem) == NULL)
   {
-    printf("hash_insert true\n");
+    // printf("hash_insert true\n");
     return true;
   }
   else
@@ -118,9 +118,16 @@ bool set_all_zero_spt (uint8_t *upage)
   new_page->writable = true;
   new_page->dirty = false;
 
-  hash_insert(cur->spt, &new_page->helem);
-
-  return true;
+  // hash_insert(cur->spt, &new_page->helem);
+  if(hash_insert(cur->spt, &new_page->helem) == NULL)
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+  // return true;
 }
 
 bool set_swap_spt (uint8_t *upage, struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable)

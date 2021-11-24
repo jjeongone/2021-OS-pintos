@@ -469,9 +469,9 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
-  printf("upage: %p\n", upage);
+  // printf("upage: %p\n", upage);
 
-  // file_seek (file, ofs);
+  file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
     {
       /* Calculate how to fill this page.
@@ -480,7 +480,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
       /* Get a page of memory. */
-      if (!set_file_spt(upage, file, ofs, read_bytes, zero_bytes, writable))
+      if (!set_file_spt(upage, file, ofs, page_read_bytes, page_zero_bytes, writable))
       {
         return false;
       }
@@ -489,6 +489,9 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
       upage += PGSIZE;
+      #ifdef VM
+      ofs += PGSIZE;
+      #endif
     }
   return true;
 }
@@ -499,8 +502,8 @@ static bool
 setup_stack (void **esp) 
 {
   bool success = false;
-  void *upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
-  printf("setup_stack upage: %p\n", upage);
+  uint8_t *upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
+  // printf("setup_stack upage: %p\n", upage);
   struct thread *cur = thread_current();
   struct page *new_page = malloc(sizeof(struct page));
   if(new_page == NULL)

@@ -363,3 +363,13 @@ page
   - all_zero, file을 구별해서 swap in/out 구현
   - clock algorithm 구현
   - resource free 잘 생각하기!
+
+### 11/25 예송 변경사항
+- process.c load_segment
+  - `file_seek` 주석 해제
+  - ofs += PGSIZE 추가
+  - set_file_spt에 계산 안한 read_bytes 넘겨주는거  page_read_bytes로 수정
+  - `size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE`, `size_t page_zero_bytes = PGSIZE - page_read_bytes;` 이 부분이 load_segment랑 exception.c is_lazy_loading에 중복으로 있음. 하나 빼도 될 듯?
+- exception.c is_lazy_loading
+  - `file_read`를 `file_read_at`으로 수정해서 저장된 offset부터 읽을 수 있도록 함
+  - 근데 이거때문에 read boundary가 안 도는 것 같음! page_read_bytes가 0으로 찍힘
