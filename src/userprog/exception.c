@@ -158,9 +158,8 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  if(!user || !is_user_vaddr(fault_addr))
+  if(!is_user_vaddr(fault_addr))
   {
-   //   printf("invalid address\n");
      f->eip = (void *) f->eax;
      f->eax = 0xffffffff;
      sys_exit(-1);
@@ -181,11 +180,6 @@ page_fault (struct intr_frame *f)
 
   printf("page fault\n");
 
-   // if(not_present && is_lazy_loading(pg_round_down(fault_addr)))
-   // {
-   //    return;
-   // }
-
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
@@ -199,24 +193,19 @@ page_fault (struct intr_frame *f)
 
 bool is_lazy_loading(void *addr)
 {
-   // printf("is_lazy_loading: %p\n", addr);
    size_t page_read_bytes;
    size_t page_zero_bytes;
    struct page *cur_page = page_lookup(addr);
    struct frame *cur_frame;
    struct thread *cur = thread_current();
 
-   /* How to handle all_zero page? */
    if(cur_page == NULL)
    {
-      // printf("cur_page == NULL\n");
       return false;
    }
    
-   // page_read_bytes = cur_page->read_bytes < PGSIZE ? cur_page->read_bytes : PGSIZE;
-   // page_zero_bytes = PGSIZE - page_read_bytes;
-   page_read_bytes = cur_page->read_bytes;
-   page_zero_bytes = cur_page->zero_bytes;
+   page_read_bytes = cur_page->read_bytes < PGSIZE ? cur_page->read_bytes : PGSIZE;
+   page_zero_bytes = PGSIZE - page_read_bytes;
 
    if(!set_page_frame(cur_page))
    {
@@ -228,8 +217,6 @@ bool is_lazy_loading(void *addr)
    {
       cur_frame = cur_page->frame;
       
-      // file_seek(cur_page->file, cur_page->file_offset);
-      // if (file_read (cur_page->file, cur_frame->kernel_vaddr, page_read_bytes) != (int) page_read_bytes)
       if(file_read_at (cur_page->file, cur_frame->kernel_vaddr, page_read_bytes, cur_page->file_offset) != (int) page_read_bytes)
       {
          page_destroy(cur_page);
@@ -247,10 +234,3 @@ bool is_lazy_loading(void *addr)
 
    return true;
 }
-
-
-// /* need? */
-// bool check_bss_address(void *addr)
-// {
-//    return true;
-// }

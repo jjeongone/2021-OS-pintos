@@ -469,8 +469,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
-  // printf("upage: %p\n", upage);
-
   file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
     {
@@ -503,7 +501,6 @@ setup_stack (void **esp)
 {
   bool success = false;
   uint8_t *upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
-  // printf("setup_stack upage: %p\n", upage);
   struct thread *cur = thread_current();
   struct page *new_page = malloc(sizeof(struct page));
   if(new_page == NULL)
