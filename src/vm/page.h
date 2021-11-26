@@ -4,11 +4,13 @@
 #include <hash.h>
 #include "vm/frame.h"
 #include "filesys/off_t.h"
+#include "threads/interrupt.h"
 
 enum page_type {
     ALL_ZERO,
     SWAP,
-    FILE
+    FILE,
+    FRAME
 };
 
 struct page {
@@ -41,5 +43,6 @@ void page_destroy(struct page *page);
 bool set_file_spt (uint8_t *upage, struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable);
 bool set_all_zero_spt (uint8_t *upage);
 bool set_swap_spt (uint8_t *upage, struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable);
+bool check_stack_growth(struct intr_frame *f, void *fault_addr, void *initial_addr, bool user);
 
 #endif

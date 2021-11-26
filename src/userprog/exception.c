@@ -168,6 +168,8 @@ page_fault (struct intr_frame *f)
   if(not_present)
   {
      initial_addr = (void *)pg_round_down(fault_addr);
+     
+     check_stack_growth(f, fault_addr, initial_addr, user);
      if(is_lazy_loading(initial_addr))
      {
         return;
@@ -177,8 +179,10 @@ page_fault (struct intr_frame *f)
         sys_exit(-1);
      }
   }
-
-  printf("page fault\n");
+  else
+  {
+     sys_exit(-1);
+  }
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
@@ -203,6 +207,10 @@ bool is_lazy_loading(void *addr)
    {
       return false;
    }
+   else if(cur_page->type == FRAME)
+   {
+      return true;
+   }
    
    page_read_bytes = cur_page->read_bytes < PGSIZE ? cur_page->read_bytes : PGSIZE;
    page_zero_bytes = PGSIZE - page_read_bytes;
@@ -213,24 +221,31 @@ bool is_lazy_loading(void *addr)
       return false;
    }
 
-   if(cur_page->type == FILE)
+   switch(cur_page->type)
    {
-      cur_frame = cur_page->frame;
-      
-      if(file_read_at (cur_page->file, cur_frame->kernel_vaddr, page_read_bytes, cur_page->file_offset) != (int) page_read_bytes)
-      {
-         page_destroy(cur_page);
-         return false;
-      }
-
-      memset (cur_frame->kernel_vaddr + page_read_bytes, 0, page_zero_bytes);
-      
-      if(!(pagedir_set_page (cur->pagedir, cur_page->vaddr, cur_frame->kernel_vaddr, cur_page->writable)))
-      {
-         page_destroy(cur_page);
-         return false; 
-      }
+      case ALL_ZERO:
+         memset(cur_frame->kernel_vaddr, 0, PGSIZE);
+         break;
+      case FILE:
+         cur_frame = cur_page->frame;
+         if(file_read_at (cur_page->file, cur_frame->kernel_vaddr, page_read_bytes, cur_page->file_offset) != (int) page_read_bytes)
+         {
+            page_destroy(cur_page);
+            return false;
+         }
+         memset (cur_frame->kernel_vaddr + page_read_bytes, 0, page_zero_bytes);
+         break;
+      default:
+         break;
    }
 
+   if(!(pagedir_set_page (cur->pagedir, cur_page->vaddr, cur_frame->kernel_vaddr, cur_page->writable)))
+   {
+      page_destroy(cur_page);
+      return false; 
+   }
+
+   pagedir_set_dirty(cur->pagedir, cur_frame->kernel_vaddr, cur_page->dirty);
+   cur_page->type = FRAME;
    return true;
 }

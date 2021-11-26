@@ -5,6 +5,7 @@
 #include "threads/synch.h"
 
 typedef int pid_t;
+typedef int mapid_t;
 
 struct file_desc
 {
@@ -15,6 +16,7 @@ struct file_desc
 
 void syscall_init (void);
 void check_address (void *addr);
+void check_buffer_address (const void *addr);
 void check_file_address (const char *file);
 int get_user (uint8_t *uaddr);
 bool put_user (uint8_t *udst, uint8_t byte);
@@ -33,6 +35,8 @@ int sys_write (int fd, const void *buffer, unsigned size);
 void sys_seek (int fd, unsigned position);
 unsigned sys_tell (int fd);
 void sys_close (int fd);
+mapid_t mmap (int fd, void *addr);
+void munmap(mapid_t mapping);
 
 struct file_desc* get_file_desc(int fd);
 void remove_file_desc(int fd);

@@ -487,9 +487,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
       upage += PGSIZE;
-      #ifdef VM
-      ofs += PGSIZE;
-      #endif
+      ofs += page_read_bytes;
     }
   return true;
 }
@@ -507,8 +505,8 @@ setup_stack (void **esp)
   {
     return success;
   }
-  set_page_frame(new_page);
   set_all_zero_spt((uint8_t *)upage);
+  set_page_frame(new_page);
   
   success = install_page (upage, (uint8_t *)new_page->frame->kernel_vaddr, true);
   if(success)

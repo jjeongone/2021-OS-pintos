@@ -12,6 +12,9 @@
 #include "devices/input.h"
 #include "lib/string.h"
 #include "threads/palloc.h"
+#include "vm/page.h"
+
+#define CODE_SEGMENT 0x8048000
 
 static void syscall_handler (struct intr_frame *);
 
@@ -24,11 +27,36 @@ syscall_init (void)
 
 void check_address (void *addr)
 {
-  if(addr == NULL || !is_user_vaddr(addr))
+  if(addr == NULL || !is_user_vaddr(addr) || addr < (void *)CODE_SEGMENT)
   {
     sys_exit(-1);
   }
 }
+
+// void check_buffer_address (const void *addr, unsigned size)
+// {
+//   struct page *cur_page;
+//   int i;
+//   for(i = 0; i < size; i++)
+//   {
+//     check_address((void *)addr);
+//     cur_page = page_lookup((void *)pg_round_down(addr));
+//     // if(cur_page != NULL)
+//     // {
+//     //   if(!cur_page->writable)
+//     //   {
+//     //     sys_exit(-1);
+//     //   }
+//     // }
+//     addr += 1;
+//   }
+
+//   // if(addr == NULL || !is_user_vaddr(addr) || cur_page == NULL || !cur_page->writable)
+//   // // if(addr == NULL || !is_user_vaddr(addr))
+//   // {
+//   //   sys_exit(-1);
+//   // }
+// }
 
 void check_buffer_address (const void *addr)
 {
@@ -304,6 +332,16 @@ void sys_close (int fd)
   lock_release(&file_lock);
 }
 
+mapid_t mmap (int fd, void *addr)
+{
+  
+}
+
+void munmap(mapid_t mapping)
+{
+  
+}
+
 struct file_desc* get_file_desc(int fd)
 {
   struct thread *cur = thread_current();
@@ -352,6 +390,8 @@ syscall_handler (struct intr_frame *f UNUSED)
   int arg1;
   void *arg2;
 
+  check_address((void *)f->esp);
+  thread_current()->esp = f->esp;
   get_stack_argument(f->esp, 4, &syscall_num);
 
   switch (syscall_num)
