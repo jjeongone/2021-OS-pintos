@@ -379,3 +379,4 @@ page
 
 ### 11/26 변경사항
 - `not_present`: 이녀석은 r/o에다가 write할 때 false임 -> 그럼 우리는 왜 supplemental_page_table에서 wriable을 저장하는 목적은 어디에?? 
+- TODO: `mmap`에서 lazy loading을 하기 위해서는 set_page_frame을 나중에 해줘야할 것 같다. 그러면 memset을 지금 방법으로 할 수 없다.

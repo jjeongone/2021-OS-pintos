@@ -13,8 +13,10 @@
 #include "lib/string.h"
 #include "threads/palloc.h"
 #include "vm/page.h"
+#include "threads/malloc.h"
 
 #define CODE_SEGMENT 0x8048000
+#define off_t int
 
 static void syscall_handler (struct intr_frame *);
 
@@ -334,12 +336,107 @@ void sys_close (int fd)
 
 mapid_t mmap (int fd, void *addr)
 {
+  struct file_desc *open_file;
+  struct file *cur_file;
+  struct page *mpage = (struct page *)malloc(sizeof(struct page));
+  struct mmap_file *mmap = (struct mmap_file *)malloc(sizeof(struct mmap_file));
+  struct thread *cur = thread_current();
+  void *new_addr;
+  int size, i, new_pos;
+  int page_num, page_read_bytes, page_zero_bytes;
+
+  if(addr == 0 || fd == 0 || fd == 1)
+  {
+    free(mpage);
+    free(mmap);
+    return -1;
+  }
+
+  open_file = get_file_desc(fd);
+
+  if(open_file == NULL || open_file->file == NULL)
+  {
+    free(mpage);
+    free(mmap);
+    return -1;
+  }
   
+  cur_file = open_file->file;
+  size = file_length(cur_file);
+
+  if(size == 0)
+  {
+    free(mpage);
+    free(mmap);
+    return -1;
+  }
+
+  page_num = size / PGSIZE + 1;
+  file_reopen(cur_file);
+
+  for(i = 0; i < page_num; i++)
+  {
+    new_addr = addr + PGSIZE * i;
+    if(page_lookup((void *)pg_round_down(new_addr)) != NULL)
+    {
+      free(mpage);
+      free(mmap);
+      return -1;
+    }
+  }
+
+  mmap->vaddr = addr;
+  mmap->id = cur->id_max;
+  mmap->file = cur_file;
+  cur->id_max = cur->id_max + 1;
+  list_init(&mmap->mmap_page);
+
+  for(i = 0; i < page_num; i++)
+  {
+    page_read_bytes = size - PGSIZE * i < PGSIZE ? size - PGSIZE * i : PGSIZE;
+    page_zero_bytes = PGSIZE - page_read_bytes;
+    new_addr = addr + PGSIZE * i;
+    new_pos = file_tell(cur_file) + PGSIZE * i;
+    
+    set_file_spt(new_addr, cur_file, new_pos, page_read_bytes, page_zero_bytes, true); // check
+    // mpage = page_lookup(new_addr);
+    // set_page_frame(mpage); // exception.c?
+    list_push_back(&mmap->mmap_page, &mpage->pelem);
+  }
+
+  // memset(mpage->frame->kernel_vaddr, 0, page_zero_bytes); // exception.c?
+  list_push_back(&cur->mmap_list, &mmap->melem);
+  free(mpage);
+  return mmap->id;
 }
 
 void munmap(mapid_t mapping)
 {
-  
+  struct thread *cur = thread_current();
+  struct list_elem *e;
+  struct list_elem *p;
+  struct mmap_file *cur_map;
+  struct page *cur_page;
+
+  for(e = list_begin(&cur->mmap_list); e != list_end(&cur->mmap_list); e = list_next(e))
+  {
+    cur_map = list_entry(e, struct mmap_file, melem);
+    if(cur_map->id == mapping)
+    {
+      for(p = list_begin(&cur_map->mmap_page); p != list_end(&cur_map->mmap_page); p = list_next(p))
+      {
+        // write back
+        cur_page = list_entry(p, struct page, pelem);
+        if(pagedir_is_dirty(cur->pagedir, cur_page->frame->kernel_vaddr))
+        {
+          file_write_at(cur_page->file, cur_page->frame->kernel_vaddr, cur_page->read_bytes, cur_page->file_offset);
+        }
+        page_destroy(cur_page);
+      }
+      file_close(cur_map->file);
+    }
+    free(cur_map);
+  }
 }
 
 struct file_desc* get_file_desc(int fd)
@@ -454,8 +551,13 @@ syscall_handler (struct intr_frame *f UNUSED)
       sys_close((int)arg0);
       break;
     case SYS_MMAP:
+      get_stack_argument(f->esp + 4, 4, &arg0);
+      get_stack_argument(f->esp + 8, 4, &arg2);
+      f->eax = mmap((int)arg0, arg2);
       break;
     case SYS_MUNMAP:
+      get_stack_argument(f->esp + 4, 4, &arg0);
+      munmap((int)arg0);
       break;
   }
 }

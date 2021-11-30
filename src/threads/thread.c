@@ -226,10 +226,6 @@ thread_create (const char *name, int priority,
   t->parent = thread_current();
   list_push_back(&thread_current()->child_list, &t->celem);
   #endif
-  
-  // #ifdef VM
-  // spt_hash_init();
-  // #endif
 
   return tid;
 }
@@ -606,6 +602,11 @@ init_thread (struct thread *t, const char *name, int priority)
   sema_init(&t->sema, 0);
   sema_init(&t->initial_sema, 0);
   sema_init(&t->exit_sema, 0);
+  #endif
+
+  #ifdef VM
+  t->id_max = 0;
+  list_init(&t->mmap_list);
   #endif
 
   old_level = intr_disable ();

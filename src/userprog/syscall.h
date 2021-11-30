@@ -14,6 +14,15 @@ struct file_desc
    struct list_elem felem;
 };
 
+struct mmap_file
+{
+   int id;
+   void *vaddr;
+   struct list_elem melem;
+   struct list mmap_page;
+   struct file *file;
+};
+
 void syscall_init (void);
 void check_address (void *addr);
 void check_buffer_address (const void *addr);

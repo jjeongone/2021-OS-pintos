@@ -20,6 +20,7 @@ struct page {
     enum page_type type;
 
     struct hash_elem helem;  /* manage page as hash */
+    struct list_elem pelem;  /* manage file mapped page list */
 
     /* file information(need to add) */
     struct file *file;      /* information about original file */

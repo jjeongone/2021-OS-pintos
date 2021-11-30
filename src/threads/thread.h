@@ -124,6 +124,8 @@ struct thread
 #ifdef VM
    struct hash *spt;
    void *esp;
+   int id_max;
+   struct list mmap_list;
 #endif
 
     /* Owned by thread.c. */
