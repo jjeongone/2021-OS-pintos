@@ -14,6 +14,7 @@
 #include "threads/palloc.h"
 #include "vm/page.h"
 #include "threads/malloc.h"
+#include "userprog/pagedir.h"
 
 #define CODE_SEGMENT 0x8048000
 #define off_t int
@@ -148,9 +149,9 @@ bool sys_create (const char *file, unsigned initial_size)
   bool success;
 
   check_file_address(file);
-  lock_acquire(&file_lock);
+  // lock_acquire(&file_lock);
   success = filesys_create(file, initial_size);
-  lock_release(&file_lock);
+  // lock_release(&file_lock);
   return success;
 }
 
@@ -159,9 +160,9 @@ bool sys_remove (const char *file)
   bool success;
 
   check_file_address(file);
-  lock_acquire(&file_lock);
+  // lock_acquire(&file_lock);
   success = filesys_remove(file);
-  lock_release(&file_lock);
+  // lock_release(&file_lock);
   return success;
 }
 
@@ -205,14 +206,14 @@ int sys_filesize (int fd)
 {
   struct file_desc* open_file;
 
-  lock_acquire(&file_lock);
+  // lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
   if(open_file == NULL || open_file->file == NULL)
   {
-    lock_release(&file_lock);
+    // lock_release(&file_lock);
     return -1;
   }
-  lock_release(&file_lock);
+  // lock_release(&file_lock);
   return file_length(open_file->file);
 }
 
@@ -289,15 +290,15 @@ void sys_seek (int fd, unsigned position)
 {
   struct file_desc* open_file;
 
-  lock_acquire(&file_lock);
+  // lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
   if(open_file == NULL || open_file->file == NULL)
   {
-    lock_release(&file_lock);
+    // lock_release(&file_lock);
     sys_exit(-1);
   }
   file_seek(open_file->file, position);
-  lock_release(&file_lock);
+  // lock_release(&file_lock);
 }
 
 unsigned sys_tell (int fd)
@@ -305,15 +306,15 @@ unsigned sys_tell (int fd)
   unsigned next_pos;
   struct file_desc* open_file;
 
-  lock_acquire(&file_lock);
+  // lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
   if(open_file == NULL || open_file->file == NULL)
   {
-    lock_release(&file_lock);
+    // lock_release(&file_lock);
     sys_exit(-1);
   }
   next_pos = file_tell(open_file->file);
-  lock_release(&file_lock);
+  // lock_release(&file_lock);
 
   return next_pos;
 }
@@ -322,32 +323,30 @@ void sys_close (int fd)
 {
   struct file_desc* open_file;
 
-  lock_acquire(&file_lock);
+  // lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
   if(open_file == NULL || open_file->file == NULL)
   {
-    lock_release(&file_lock);
+    // lock_release(&file_lock);
     sys_exit(-1);
   }
   file_close(open_file->file);
   remove_file_desc(fd);
-  lock_release(&file_lock);
+  // lock_release(&file_lock);
 }
 
 mapid_t mmap (int fd, void *addr)
 {
   struct file_desc *open_file;
   struct file *cur_file;
-  struct page *mpage = (struct page *)malloc(sizeof(struct page));
   struct mmap_file *mmap = (struct mmap_file *)malloc(sizeof(struct mmap_file));
   struct thread *cur = thread_current();
   void *new_addr;
   int size, i, new_pos;
   int page_num, page_read_bytes, page_zero_bytes;
 
-  if(addr == 0 || fd == 0 || fd == 1)
+  if(addr == 0 || addr == NULL || pg_ofs(addr) != 0 || fd == 0 || fd == 1)
   {
-    free(mpage);
     free(mmap);
     return -1;
   }
@@ -356,30 +355,34 @@ mapid_t mmap (int fd, void *addr)
 
   if(open_file == NULL || open_file->file == NULL)
   {
-    free(mpage);
     free(mmap);
     return -1;
   }
   
-  cur_file = open_file->file;
-  size = file_length(cur_file);
+  size = file_length(open_file->file);
 
   if(size == 0)
   {
-    free(mpage);
     free(mmap);
     return -1;
   }
 
   page_num = size / PGSIZE + 1;
-  file_reopen(cur_file);
+  lock_acquire(&file_lock);
+  cur_file = file_reopen(open_file->file);
+  if(cur_file == NULL)
+  {
+    lock_release(&file_lock);
+    free(mmap);
+    return -1;
+  }
 
   for(i = 0; i < page_num; i++)
   {
     new_addr = addr + PGSIZE * i;
-    if(page_lookup((void *)pg_round_down(new_addr)) != NULL)
+    if(page_lookup(new_addr) != NULL)
     {
-      free(mpage);
+      lock_release(&file_lock);
       free(mmap);
       return -1;
     }
@@ -388,25 +391,20 @@ mapid_t mmap (int fd, void *addr)
   mmap->vaddr = addr;
   mmap->id = cur->id_max;
   mmap->file = cur_file;
+  mmap->size = size;
   cur->id_max = cur->id_max + 1;
-  list_init(&mmap->mmap_page);
 
   for(i = 0; i < page_num; i++)
   {
     page_read_bytes = size - PGSIZE * i < PGSIZE ? size - PGSIZE * i : PGSIZE;
     page_zero_bytes = PGSIZE - page_read_bytes;
     new_addr = addr + PGSIZE * i;
-    new_pos = file_tell(cur_file) + PGSIZE * i;
-    
+    new_pos = PGSIZE * i;
     set_file_spt(new_addr, cur_file, new_pos, page_read_bytes, page_zero_bytes, true); // check
-    // mpage = page_lookup(new_addr);
-    // set_page_frame(mpage); // exception.c?
-    list_push_back(&mmap->mmap_page, &mpage->pelem);
   }
 
-  // memset(mpage->frame->kernel_vaddr, 0, page_zero_bytes); // exception.c?
   list_push_back(&cur->mmap_list, &mmap->melem);
-  free(mpage);
+  lock_release(&file_lock);
   return mmap->id;
 }
 
@@ -417,26 +415,41 @@ void munmap(mapid_t mapping)
   struct list_elem *p;
   struct mmap_file *cur_map;
   struct page *cur_page;
+  int i;
+
+  lock_acquire(&file_lock);
 
   for(e = list_begin(&cur->mmap_list); e != list_end(&cur->mmap_list); e = list_next(e))
   {
     cur_map = list_entry(e, struct mmap_file, melem);
-    if(cur_map->id == mapping)
+    if(cur_map == NULL)
     {
-      for(p = list_begin(&cur_map->mmap_page); p != list_end(&cur_map->mmap_page); p = list_next(p))
+      continue;
+    }
+    if(cur_map->id == mapping)
+    { 
+      for(i = 0; i < cur_map->size; i += PGSIZE)
       {
-        // write back
-        cur_page = list_entry(p, struct page, pelem);
-        if(pagedir_is_dirty(cur->pagedir, cur_page->frame->kernel_vaddr))
+        cur_page = page_lookup(cur_map->vaddr + i);
+        if(cur_page == NULL || cur_page->frame == NULL)
         {
-          file_write_at(cur_page->file, cur_page->frame->kernel_vaddr, cur_page->read_bytes, cur_page->file_offset);
+          continue;
         }
-        page_destroy(cur_page);
+        if(pagedir_is_dirty(cur->pagedir, cur_page->vaddr) || cur_page->dirty)
+        {
+          file_write_at(cur_page->file, cur_page->vaddr, cur_page->read_bytes, cur_page->file_offset);
+        }
+        frame_destroy(cur_page->frame);
+        pagedir_clear_page(cur->pagedir, cur_page->vaddr);
       }
       file_close(cur_map->file);
+      list_remove(e);
+      free(cur_map);
+      lock_release(&file_lock);
+      return;
     }
-    free(cur_map);
   }
+  lock_release(&file_lock);
 }
 
 struct file_desc* get_file_desc(int fd)

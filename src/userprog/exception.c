@@ -217,7 +217,6 @@ bool is_lazy_loading(void *addr)
 
    if(!set_page_frame(cur_page))
    {
-      page_destroy(cur_page);
       return false;
    }
 
@@ -230,7 +229,7 @@ bool is_lazy_loading(void *addr)
          cur_frame = cur_page->frame;
          if(file_read_at (cur_page->file, cur_frame->kernel_vaddr, page_read_bytes, cur_page->file_offset) != (int) page_read_bytes)
          {
-            page_destroy(cur_page);
+            frame_destroy(cur_frame);
             return false;
          }
          memset (cur_frame->kernel_vaddr + page_read_bytes, 0, page_zero_bytes);
@@ -241,7 +240,7 @@ bool is_lazy_loading(void *addr)
 
    if(!(pagedir_set_page (cur->pagedir, cur_page->vaddr, cur_frame->kernel_vaddr, cur_page->writable)))
    {
-      page_destroy(cur_page);
+      frame_destroy(cur_frame);
       return false; 
    }
 

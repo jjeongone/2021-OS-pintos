@@ -67,7 +67,7 @@ void page_destroy(struct page *page)
   {
     return;
   }
-  frame_destroy(page->frame);
+  hash_delete(thread_current()->spt, &page->helem);
   free(page);
 }
 
@@ -89,6 +89,7 @@ bool set_file_spt (uint8_t *upage, struct file *file, off_t ofs, uint32_t read_b
   new_page->zero_bytes = zero_bytes;
   new_page->writable = writable;
   new_page->dirty = false;
+  new_page->frame = NULL;
 
   if(hash_insert(cur->spt, &new_page->helem) == NULL)
   {
@@ -117,6 +118,7 @@ bool set_all_zero_spt (uint8_t *upage)
   new_page->zero_bytes = -1;
   new_page->writable = false;
   new_page->dirty = false;
+  new_page->frame = NULL;
 
   if(hash_insert(cur->spt, &new_page->helem) == NULL)
   {

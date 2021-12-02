@@ -164,6 +164,7 @@ process_exit (void)
   struct thread *cur = thread_current ();
   struct list_elem *e;
   uint32_t *pd;
+  int i;
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -188,6 +189,19 @@ process_exit (void)
       {
         lock_release(&file_lock);
       }
+
+      if(lock_held_by_current_thread(&frame_lock))
+      {
+        lock_release(&frame_lock);
+      }
+
+      for(i = 0; i < cur->id_max; i++)
+      {
+        munmap(i);
+      }
+      spt_hash_destroy();
+      cur->spt = NULL;
+      
       file_close(cur->run_file);
       cur->pagedir = NULL;
       pagedir_activate (NULL);
@@ -304,8 +318,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
-  lock_acquire(&file_lock);
   /* Open executable file. */
+  lock_acquire(&file_lock);
   file = filesys_open (file_name);
   if (file == NULL) 
     {
@@ -334,7 +348,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       if (file_ofs < 0 || file_ofs > file_length (file))
         goto done;
       file_seek (file, file_ofs);
-
+      
       if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
         goto done;
       file_ofs += sizeof phdr;

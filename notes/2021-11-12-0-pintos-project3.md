@@ -380,3 +380,17 @@ page
 ### 11/26 변경사항
 - `not_present`: 이녀석은 r/o에다가 write할 때 false임 -> 그럼 우리는 왜 supplemental_page_table에서 wriable을 저장하는 목적은 어디에?? 
 - TODO: `mmap`에서 lazy loading을 하기 위해서는 set_page_frame을 나중에 해줘야할 것 같다. 그러면 memset을 지금 방법으로 할 수 없다.
+
+### 11/30 변경사항
+- `mmap` 수정: lazy loading이므로 여기서 바로 frame을 할당하는게 아니고 나중에 해주면 된다.
+- `mmap-read` 테스트케이스에서 파일 열고, mmap하고 데이터 확인하고 0 차있는지 보고 munmap한다. 어디서 죽는지 정확하게는 모르겠으나, sys_exit(-1)이 호출된다. gdb 찍어보니 exception.c:231 file_read_at이 실패해서 is_lazy_loading이 false가 되면서 sys_exit하는 것 같다. offset이나 size에 문제가 있는걸까?
+
+### 12/1 변경사항
+- exception.c `is_lazy_loading`에서 실패했을 때 `page_destroy`가 아니라 그냥 `frame_destroy`만 호출해야함! lazy loading 자체가 이미 있는 page에 frame만 넣어주는 부분이니까 그거 실패했다고 page를 지워버리면 안 됨. -> 이거 고쳤더니 mmap overlap, twice, inherit pass
+
+### 12/2 변경사항
+- `mmap-unmap`과 `mmap-overlap`이 안 되는 상황이었다
+- dirty bit check하는 부분을 제대로된 주소(vaddr)만 검사하도록 수정해주었다
+- frame 만들기 위해서 palloc할 때 USER, ZERO를 구분하는 flag를 추가했다
+- page를 생성할 때 빈 frame을 NULL로 초기화해주지 않아서, 이상한데 접근하는 것 같았다. 초기화를.. 잘하자...
+- page_destroy에서는 frame을 부수지 않는다...

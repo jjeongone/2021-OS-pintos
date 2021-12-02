@@ -18,9 +18,10 @@ struct mmap_file
 {
    int id;
    void *vaddr;
+   int size;
    struct list_elem melem;
-   struct list mmap_page;
    struct file *file;
+   struct list page_list;
 };
 
 void syscall_init (void);

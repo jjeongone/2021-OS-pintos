@@ -607,6 +607,7 @@ init_thread (struct thread *t, const char *name, int priority)
   #ifdef VM
   t->id_max = 0;
   list_init(&t->mmap_list);
+  lock_init(&frame_lock);
   #endif
 
   old_level = intr_disable ();
