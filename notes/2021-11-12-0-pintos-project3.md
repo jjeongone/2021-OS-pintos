@@ -397,8 +397,10 @@ page
 
 ### 12/5 변경사항
 - 접근하기 전에.. 선언된 변수에 값이 잘 들어가 있는지 확인하자.. 없는 cur_frame에서 자꾸 kernel_vaddr 내놓으라고 하니까 말도 없이 자꾸 뒤졋음... 이래서 0x4같은 이상한 address가 뜬거임 없는데서 접근하니까
-- writable에 아무생각 없이 false줬더니 test code가 쓸 수가 없네????? 정보) writable이 false면 쓸수업다. 당연함 못씀
+- writable에 아무생각 없이 false줬더니 test code가 쓸 수가 없네????? 정보) writable이 false면 쓸수업다. 당연함 못씀. 정보: writable이 false면 쓸 수 없다 :)
 - stack growth test 다 통과
 - malloc한거 또 malloc하니까 주소가 망가짐.
 - ASSERT를 잘 활용해서 panic을 만들어서 backtrace가 가능하도록 하자
 - 주소를 출력해서 이상한 것을 비교하자!
+- exit할 때 swap된 녀석들도 다 free 시켜줘야한다
+- exit할 때 이미 부셨던 pagedir는 부수지 말아야한다 왜? 이미 없거든ㅎㅎ..
