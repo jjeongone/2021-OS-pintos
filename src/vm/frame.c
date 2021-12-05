@@ -1,7 +1,6 @@
 #include "threads/malloc.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
-#include "threads/thread.h"
 #include "vm/swap.h"
 #include "vm/frame.h"
 #include "userprog/pagedir.h"
@@ -31,8 +30,7 @@ struct frame *frame_create(enum palloc_flags flag)
     new_frame->kernel_vaddr = palloc_get_page(PAL_USER | flag);
     new_frame->clock_bit = true;
   }
-  new_frame->page = NULL;
-  list_push_back(&frame_table, &new_frame->elem);
+  // new_frame->page = NULL;
 
   return new_frame;
 }
@@ -60,19 +58,21 @@ void frame_destroy(struct frame *frame)
 bool set_page_frame(struct page *page)
 {
   struct frame *frame;
+  lock_acquire(&frame_lock);
   frame = page->type == ALL_ZERO ? frame_create(PAL_ZERO) : frame_create(PAL_USER);
 
   if(frame == NULL)
   {
     return false;
   }
-  lock_acquire(&frame_lock);
   frame->page = page;
   frame->bit_index = -1;
   frame->clock_bit = true;
+  frame->thread = thread_current();
   page->frame = frame;
+  list_push_back(&frame_table, &frame->elem);
   lock_release(&frame_lock);
-
+  // printf("page_type: %d, kernel_vaddr: %p, vaddr: %p\n", (int)page->type, frame->kernel_vaddr, page->vaddr);
   return true;
 }
 
@@ -80,13 +80,12 @@ void clock_algorithm(void)
 {
   struct frame *cur_frame;
   struct page *cur_page;
-  struct thread *cur = thread_current();
   int bit_index;
   bool dirty;
 
   while(1)
   {
-    if(clock_iter == NULL || clock_iter == list_end(&frame_table))
+    if(clock_iter == NULL || list_next(clock_iter) == list_end(&frame_table))
     {
       clock_iter = list_begin(&frame_table);
     }
@@ -96,6 +95,8 @@ void clock_algorithm(void)
     }
 
     cur_frame = list_entry(clock_iter, struct frame, elem);
+    ASSERT(cur_frame->page != NULL);
+
     if(cur_frame->clock_bit == true)
     {
       cur_frame->clock_bit = false;
@@ -105,9 +106,13 @@ void clock_algorithm(void)
       break; 
     }
   }
+  // pagedir_clear_page(cur_frame->thread->pagedir, cur_frame->kernel_vaddr);
   cur_page = cur_frame->page;
+  // printf("kernel_vaddr: %p, vaddr: %p\n", cur_frame->kernel_vaddr, cur_page->vaddr);
+  pagedir_clear_page(cur_frame->thread->pagedir, cur_page->vaddr);
   bit_index = swap_out(cur_frame->kernel_vaddr);
-  dirty = pagedir_is_dirty(cur->pagedir, cur_page->vaddr);
+  dirty = pagedir_is_dirty(cur_frame->thread->pagedir, cur_frame->kernel_vaddr);
   set_swap_spt(cur_page, bit_index, dirty);
   palloc_free_page(cur_frame->kernel_vaddr);
+  // remove from frame list
 }

@@ -5,6 +5,7 @@
 #include <hash.h>
 #include "threads/palloc.h"
 #include "threads/synch.h"
+#include "threads/thread.h"
 
 struct lock frame_lock;
 struct list frame_table;
@@ -14,6 +15,8 @@ struct frame {
     void *kernel_vaddr;         /* actual physical address(physical address + PHYS_BASE) */
     int bit_index;              /* where in the swap table */
     bool clock_bit;             /* for clock algorithm */
+    
+    struct thread *thread;
     
     struct list_elem elem;
 };

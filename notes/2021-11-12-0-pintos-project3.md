@@ -397,5 +397,5 @@ page
 
 ### 12/5 변경사항
 - 접근하기 전에.. 선언된 변수에 값이 잘 들어가 있는지 확인하자.. 없는 cur_frame에서 자꾸 kernel_vaddr 내놓으라고 하니까 말도 없이 자꾸 뒤졋음...
-- writable에 아무생각 없이 false줬더니 test code가 쓸 수가 없네?????
+- writable에 아무생각 없이 false줬더니 test code가 쓸 수가 없네????? 정보) writable이 false면 쓸수업다. 당연함 못씀
 - stack growth test 다 통과

@@ -513,15 +513,12 @@ setup_stack (void **esp)
 {
   bool success = false;
   uint8_t *upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
-  struct thread *cur = thread_current();
-  struct page *new_page = malloc(sizeof(struct page));
-  if(new_page == NULL)
-  {
-    return success;
-  }
-  // set_all_zero_spt((uint8_t *)upage);
+  struct page *new_page;
+
   set_all_zero_spt(upage);
+  new_page = page_lookup(upage);
   set_page_frame(new_page);
+  memset(new_page->frame->kernel_vaddr, 0, PGSIZE);
   
   // success = install_page (upage, (uint8_t *)new_page->frame->kernel_vaddr, true);
   success = install_page (upage, new_page->frame->kernel_vaddr, true);
