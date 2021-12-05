@@ -28,10 +28,8 @@ struct frame *frame_create(enum palloc_flags flag)
   {
     clock_algorithm();
     new_frame->kernel_vaddr = palloc_get_page(PAL_USER | flag);
-    // printf("clock kernel_vaddr: %p\n", new_frame->kernel_vaddr);
     new_frame->clock_bit = true;
   }
-  // new_frame->page = NULL;
 
   return new_frame;
 }
@@ -67,13 +65,11 @@ bool set_page_frame(struct page *page)
     return false;
   }
   frame->page = page;
-  // frame->bit_index = -1;
   frame->clock_bit = true;
   frame->thread = thread_current();
   page->frame = frame;
   list_push_back(&frame_table, &frame->elem);
   lock_release(&frame_lock);
-  // printf("page_type: %d, kernel_vaddr: %p, vaddr: %p\n", (int)page->type, frame->kernel_vaddr, page->vaddr);
   return true;
 }
 
@@ -96,8 +92,6 @@ void clock_algorithm(void)
     }
 
     cur_frame = list_entry(clock_iter, struct frame, elem);
-    ASSERT(cur_frame->page != NULL);
-
     if(cur_frame->clock_bit == true)
     {
       cur_frame->clock_bit = false;
@@ -107,14 +101,12 @@ void clock_algorithm(void)
       break; 
     }
   }
-  // pagedir_clear_page(cur_frame->thread->pagedir, cur_frame->kernel_vaddr);
   cur_page = cur_frame->page;
-  // printf("evict) kernel_vaddr: %p, vaddr: %p\n", cur_frame->kernel_vaddr, cur_page->vaddr);
   pagedir_clear_page(cur_frame->thread->pagedir, cur_page->vaddr);
   bit_index = swap_out(cur_frame->kernel_vaddr);
   dirty = pagedir_is_dirty(cur_frame->thread->pagedir, cur_frame->kernel_vaddr);
   set_swap_spt(cur_page, bit_index, dirty);
 
   palloc_free_page(cur_frame->kernel_vaddr);
-  list_remove(clock_iter);
+  list_remove(&cur_frame->elem);
 }

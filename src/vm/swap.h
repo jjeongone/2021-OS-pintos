@@ -12,7 +12,6 @@ struct lock swap_lock;
 void swap_init(void);
 void swap_in(struct page *page, int bit_index, void *kernel_vaddr, bool dirty);
 int swap_out(void *kernel_vaddr);
-// static bool swap_in_file(struct page *page,  void *kernel_vaddr);
-// static bool swap_out_file(struct page *page);
+void swap_destroy(uint32_t swap_index);
 
 #endif

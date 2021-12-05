@@ -43,12 +43,7 @@ int swap_out(void *kernel_vaddr)
     return bit_index;
 }
 
-// static bool swap_in_file(struct page *page,  void *kernel_vaddr)
-// {
-
-// }
-
-// static bool swap_out_file(struct page *page)
-// {
-    
-// }
+void swap_destroy(uint32_t swap_index)
+{
+    bitmap_set(swap_table, swap_index, false);
+}

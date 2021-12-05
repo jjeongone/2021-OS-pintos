@@ -55,7 +55,16 @@ void spt_hash_destroy(void)
     {
       struct list_elem *list_elem = list_pop_front (bucket);
       struct hash_elem *hash_elem = list_elem_to_hash_elem (list_elem);
-      page_destroy(hash_entry(hash_elem, struct page, helem));
+      struct page *p = hash_entry(hash_elem, struct page, helem);
+      if(p->type == FRAME)
+      {
+        frame_destroy(p->frame);
+      }
+      else if(p->type == SWAP)
+      {
+        swap_destroy(p->bit_index);
+      }
+      page_destroy(p);
     }
     list_init (bucket); 
   }
@@ -110,7 +119,6 @@ bool set_all_zero_spt (uint8_t *upage)
   {
     return false;
   }
-
   new_page->vaddr = upage; 
   new_page->type = ALL_ZERO;
   new_page->file = NULL;

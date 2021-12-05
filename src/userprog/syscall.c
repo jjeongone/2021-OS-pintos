@@ -37,31 +37,6 @@ void check_address (void *addr)
   }
 }
 
-// void check_buffer_address (const void *addr, unsigned size)
-// {
-//   struct page *cur_page;
-//   int i;
-//   for(i = 0; i < size; i++)
-//   {
-//     check_address((void *)addr);
-//     cur_page = page_lookup((void *)pg_round_down(addr));
-//     // if(cur_page != NULL)
-//     // {
-//     //   if(!cur_page->writable)
-//     //   {
-//     //     sys_exit(-1);
-//     //   }
-//     // }
-//     addr += 1;
-//   }
-
-//   // if(addr == NULL || !is_user_vaddr(addr) || cur_page == NULL || !cur_page->writable)
-//   // // if(addr == NULL || !is_user_vaddr(addr))
-//   // {
-//   //   sys_exit(-1);
-//   // }
-// }
-
 void check_buffer_address (const void *addr)
 {
   if(addr == NULL || !is_user_vaddr(addr))
@@ -149,9 +124,7 @@ bool sys_create (const char *file, unsigned initial_size)
   bool success;
 
   check_file_address(file);
-  // lock_acquire(&file_lock);
   success = filesys_create(file, initial_size);
-  // lock_release(&file_lock);
   return success;
 }
 
@@ -160,9 +133,7 @@ bool sys_remove (const char *file)
   bool success;
 
   check_file_address(file);
-  // lock_acquire(&file_lock);
   success = filesys_remove(file);
-  // lock_release(&file_lock);
   return success;
 }
 
@@ -206,14 +177,11 @@ int sys_filesize (int fd)
 {
   struct file_desc* open_file;
 
-  // lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
   if(open_file == NULL || open_file->file == NULL)
   {
-    // lock_release(&file_lock);
     return -1;
   }
-  // lock_release(&file_lock);
   return file_length(open_file->file);
 }
 
@@ -290,15 +258,12 @@ void sys_seek (int fd, unsigned position)
 {
   struct file_desc* open_file;
 
-  // lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
   if(open_file == NULL || open_file->file == NULL)
   {
-    // lock_release(&file_lock);
     sys_exit(-1);
   }
   file_seek(open_file->file, position);
-  // lock_release(&file_lock);
 }
 
 unsigned sys_tell (int fd)
@@ -306,15 +271,12 @@ unsigned sys_tell (int fd)
   unsigned next_pos;
   struct file_desc* open_file;
 
-  // lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
   if(open_file == NULL || open_file->file == NULL)
   {
-    // lock_release(&file_lock);
     sys_exit(-1);
   }
   next_pos = file_tell(open_file->file);
-  // lock_release(&file_lock);
 
   return next_pos;
 }
@@ -323,16 +285,13 @@ void sys_close (int fd)
 {
   struct file_desc* open_file;
 
-  // lock_acquire(&file_lock);
   open_file = get_file_desc(fd);
   if(open_file == NULL || open_file->file == NULL)
   {
-    // lock_release(&file_lock);
     sys_exit(-1);
   }
   file_close(open_file->file);
   remove_file_desc(fd);
-  // lock_release(&file_lock);
 }
 
 mapid_t mmap (int fd, void *addr)
@@ -387,7 +346,6 @@ mapid_t mmap (int fd, void *addr)
       return -1;
     }
   }
-
   mmap->vaddr = addr;
   mmap->id = cur->id_max;
   mmap->file = cur_file;
@@ -445,12 +403,10 @@ void munmap(mapid_t mapping)
             {
               file_write_at(cur_page->file, cur_page->vaddr, cur_page->read_bytes, cur_page->file_offset);
             }
-            frame_destroy(cur_page->frame);
             pagedir_clear_page(cur->pagedir, cur_page->vaddr);
             break;
           case SWAP:
             temp_page = palloc_get_page(0);
-            // swap_in(cur_page, cur_page->frame->bit_index, temp_page, dirty);
             swap_in(cur_page, cur_page->bit_index, temp_page, dirty);
             if(dirty)
             {

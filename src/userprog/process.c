@@ -165,6 +165,7 @@ process_exit (void)
   struct list_elem *e;
   uint32_t *pd;
   int i;
+  struct frame *temp_frame;
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -199,13 +200,12 @@ process_exit (void)
       {
         munmap(i);
       }
+
       spt_hash_destroy();
       cur->spt = NULL;
-      
       file_close(cur->run_file);
-      cur->pagedir = NULL;
       pagedir_activate (NULL);
-      pagedir_destroy (pd);
+      cur->pagedir = NULL;
       sema_up(&cur->sema);
       sema_down(&cur->exit_sema);
     }
@@ -520,7 +520,6 @@ setup_stack (void **esp)
   set_page_frame(new_page);
   memset(new_page->frame->kernel_vaddr, 0, PGSIZE);
   
-  // success = install_page (upage, (uint8_t *)new_page->frame->kernel_vaddr, true);
   success = install_page (upage, new_page->frame->kernel_vaddr, true);
   if(success)
   {
@@ -529,7 +528,6 @@ setup_stack (void **esp)
   else
   {
     page_destroy(new_page);
-    // frame_destroy(new_page->frame);
   }
   return success;
 }

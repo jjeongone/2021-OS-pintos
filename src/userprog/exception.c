@@ -169,8 +169,7 @@ page_fault (struct intr_frame *f)
   if(not_present)
   {
      initial_addr = (void *)pg_round_down(fault_addr);
-   //   printf("fault_addr: %p, initial_addr: %p\n", fault_addr, initial_addr);
-   //   ASSERT(initial_addr != 0x16c000);
+     ASSERT(initial_addr < PHYS_BASE);
      check_stack_growth(f, fault_addr, initial_addr, user);
      if(is_lazy_loading(initial_addr))
      {
@@ -204,7 +203,6 @@ bool is_lazy_loading(void *addr)
    struct page *cur_page = page_lookup(addr);
    struct frame *cur_frame;
    struct thread *cur = thread_current();
-   // printf("addr: %p\n", addr);
 
    if(cur_page == NULL)
    {
