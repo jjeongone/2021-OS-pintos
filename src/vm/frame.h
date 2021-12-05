@@ -4,21 +4,24 @@
 #include "vm/page.h"
 #include <hash.h>
 #include "threads/palloc.h"
+#include "threads/synch.h"
 
 struct lock frame_lock;
+struct list frame_table;
 
 struct frame {
     struct page *page;          /* mapped page table entry */
     void *kernel_vaddr;         /* actual physical address(physical address + PHYS_BASE) */
+    int bit_index;              /* where in the swap table */
+    bool clock_bit;             /* for clock algorithm */
+    
+    struct list_elem elem;
 };
 
-/* use hash struct(provided by stanford pintos document) */
-// unsigned frame_hash (const struct hash_elem *p_, void *aux UNUSED);
-// bool frame_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux UNUSED);
-// struct page *frame_lookup (const void *address);
-
+void frame_init(void);
 struct frame *frame_create(enum palloc_flags flag);
 void frame_destroy(struct frame *frame);
-bool set_page_frame(struct page *page);
+bool set_page_frame(struct page *page); 
+void clock_algorithm(void);
 
 #endif

@@ -43,7 +43,7 @@ void spt_hash_destroy(void);
 void page_destroy(struct page *page);
 bool set_file_spt (uint8_t *upage, struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable);
 bool set_all_zero_spt (uint8_t *upage);
-bool set_swap_spt (uint8_t *upage, struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable);
+bool set_swap_spt (struct page *page, int bit_index, bool dirty);
 bool check_stack_growth(struct intr_frame *f, void *fault_addr, void *initial_addr, bool user);
 
 #endif

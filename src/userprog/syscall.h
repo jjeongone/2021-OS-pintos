@@ -3,6 +3,7 @@
 
 #include <list.h>
 #include "threads/synch.h"
+#include "vm/page.h"
 
 typedef int pid_t;
 typedef int mapid_t;
@@ -19,6 +20,8 @@ struct mmap_file
    int id;
    void *vaddr;
    int size;
+   struct page *page;
+
    struct list_elem melem;
    struct file *file;
    struct list page_list;

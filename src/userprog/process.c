@@ -519,10 +519,12 @@ setup_stack (void **esp)
   {
     return success;
   }
-  set_all_zero_spt((uint8_t *)upage);
+  // set_all_zero_spt((uint8_t *)upage);
+  set_all_zero_spt(upage);
   set_page_frame(new_page);
   
-  success = install_page (upage, (uint8_t *)new_page->frame->kernel_vaddr, true);
+  // success = install_page (upage, (uint8_t *)new_page->frame->kernel_vaddr, true);
+  success = install_page (upage, new_page->frame->kernel_vaddr, true);
   if(success)
   {
     *esp = PHYS_BASE;
@@ -530,6 +532,7 @@ setup_stack (void **esp)
   else
   {
     page_destroy(new_page);
+    // frame_destroy(new_page->frame);
   }
   return success;
 }

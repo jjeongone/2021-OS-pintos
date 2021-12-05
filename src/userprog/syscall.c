@@ -15,6 +15,7 @@
 #include "vm/page.h"
 #include "threads/malloc.h"
 #include "userprog/pagedir.h"
+#include "vm/swap.h"
 
 #define CODE_SEGMENT 0x8048000
 #define off_t int
@@ -108,7 +109,6 @@ void sys_halt(void)
 void sys_exit(int status)
 {
   struct thread *cur = thread_current ();
-
   printf("%s: exit(%d)\n", cur->name, status);
   cur->exit_status = status;
   thread_exit();
@@ -415,7 +415,9 @@ void munmap(mapid_t mapping)
   struct list_elem *p;
   struct mmap_file *cur_map;
   struct page *cur_page;
+  struct page *temp_page;
   int i;
+  bool dirty;
 
   lock_acquire(&file_lock);
 
@@ -435,12 +437,28 @@ void munmap(mapid_t mapping)
         {
           continue;
         }
-        if(pagedir_is_dirty(cur->pagedir, cur_page->vaddr) || cur_page->dirty)
+        dirty = pagedir_is_dirty(cur->pagedir, cur_page->vaddr) || cur_page->dirty;
+        switch(cur_page->type)
         {
-          file_write_at(cur_page->file, cur_page->vaddr, cur_page->read_bytes, cur_page->file_offset);
+          case FRAME:
+            if(dirty)
+            {
+              file_write_at(cur_page->file, cur_page->vaddr, cur_page->read_bytes, cur_page->file_offset);
+            }
+            frame_destroy(cur_page->frame);
+            pagedir_clear_page(cur->pagedir, cur_page->vaddr);
+            break;
+          case SWAP:
+            temp_page = palloc_get_page(0);
+            swap_in(cur_page, cur_page->frame->bit_index, temp_page, dirty);
+            if(dirty)
+            {
+              file_write_at(cur_map->file, temp_page, cur_page->read_bytes, cur_page->file_offset);
+            }
+            palloc_free_page(temp_page);
+            break;
+          default: break;
         }
-        frame_destroy(cur_page->frame);
-        pagedir_clear_page(cur->pagedir, cur_page->vaddr);
       }
       file_close(cur_map->file);
       list_remove(e);

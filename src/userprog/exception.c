@@ -13,6 +13,8 @@
 #include <string.h>
 #include "userprog/pagedir.h"
 
+#define MAX_STACK_SIZE 0x800000
+
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
@@ -168,7 +170,6 @@ page_fault (struct intr_frame *f)
   if(not_present)
   {
      initial_addr = (void *)pg_round_down(fault_addr);
-     
      check_stack_growth(f, fault_addr, initial_addr, user);
      if(is_lazy_loading(initial_addr))
      {
@@ -220,19 +221,22 @@ bool is_lazy_loading(void *addr)
       return false;
    }
 
+   cur_frame = cur_page->frame;
    switch(cur_page->type)
    {
       case ALL_ZERO:
          memset(cur_frame->kernel_vaddr, 0, PGSIZE);
          break;
       case FILE:
-         cur_frame = cur_page->frame;
          if(file_read_at (cur_page->file, cur_frame->kernel_vaddr, page_read_bytes, cur_page->file_offset) != (int) page_read_bytes)
          {
             frame_destroy(cur_frame);
             return false;
          }
          memset (cur_frame->kernel_vaddr + page_read_bytes, 0, page_zero_bytes);
+         break;
+      case SWAP:
+         swap_in(cur_page, cur_frame->bit_index, cur_frame->kernel_vaddr, true);
          break;
       default:
          break;

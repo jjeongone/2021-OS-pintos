@@ -4,7 +4,8 @@
 #include "threads/palloc.h"
 #include "threads/vaddr.h"
 
-#define MAX_STACK_SIZE 0x800000
+// #define MAX_STACK_SIZE 0x800000
+#define MAX_STACK_SIZE 0x100000
 
 /* Returns a hash value for page p. */
 unsigned page_hash (const struct hash_elem *p_, void *aux)
@@ -116,7 +117,7 @@ bool set_all_zero_spt (uint8_t *upage)
   new_page->file_offset = -1;
   new_page->read_bytes = -1;
   new_page->zero_bytes = -1;
-  new_page->writable = false;
+  new_page->writable = true;
   new_page->dirty = false;
   new_page->frame = NULL;
 
@@ -130,16 +131,20 @@ bool set_all_zero_spt (uint8_t *upage)
   }
 }
 
-bool set_swap_spt (uint8_t *upage, struct file *file, off_t ofs, uint32_t read_bytes, uint32_t zero_bytes, bool writable)
+bool set_swap_spt (struct page *page, int bit_index, bool dirty)
 {
+  page->type = SWAP; 
+  page->frame->bit_index = bit_index;
+  page->dirty = dirty;
   return true;
 }
 
 bool check_stack_growth(struct intr_frame *f, void *fault_addr, void *initial_addr, bool user)
 {
-  void *cur_esp = user ? f->esp : thread_current()->esp;
+  struct thread *cur = thread_current();
+  void *cur_esp = user ? f->esp : cur->esp;
 
-  if(((fault_addr >= PHYS_BASE - MAX_STACK_SIZE && fault_addr < PHYS_BASE) && (fault_addr >= cur_esp || fault_addr == f->esp - 4 || fault_addr == f->esp - 32)))
+  if((fault_addr >= PHYS_BASE - MAX_STACK_SIZE && fault_addr < PHYS_BASE) && (cur_esp <= fault_addr || fault_addr == f->esp - 32))
   {
     if(page_lookup(initial_addr) == NULL)
     {
