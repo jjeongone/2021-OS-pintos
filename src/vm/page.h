@@ -29,6 +29,8 @@ struct page {
     uint32_t zero_bytes;
     bool writable;
 
+    int bit_index;              /* where in the swap table */
+
     bool dirty;             /* initialize 0, if write occurs, set dirty as 1 */
 };
 

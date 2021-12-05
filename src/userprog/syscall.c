@@ -450,7 +450,8 @@ void munmap(mapid_t mapping)
             break;
           case SWAP:
             temp_page = palloc_get_page(0);
-            swap_in(cur_page, cur_page->frame->bit_index, temp_page, dirty);
+            // swap_in(cur_page, cur_page->frame->bit_index, temp_page, dirty);
+            swap_in(cur_page, cur_page->bit_index, temp_page, dirty);
             if(dirty)
             {
               file_write_at(cur_map->file, temp_page, cur_page->read_bytes, cur_page->file_offset);

@@ -134,7 +134,7 @@ bool set_all_zero_spt (uint8_t *upage)
 bool set_swap_spt (struct page *page, int bit_index, bool dirty)
 {
   page->type = SWAP; 
-  page->frame->bit_index = bit_index;
+  page->bit_index = bit_index;
   page->dirty = dirty;
   return true;
 }

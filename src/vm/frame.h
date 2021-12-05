@@ -13,7 +13,7 @@ struct list frame_table;
 struct frame {
     struct page *page;          /* mapped page table entry */
     void *kernel_vaddr;         /* actual physical address(physical address + PHYS_BASE) */
-    int bit_index;              /* where in the swap table */
+    // int bit_index;              /* where in the swap table */
     bool clock_bit;             /* for clock algorithm */
     
     struct thread *thread;

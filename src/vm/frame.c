@@ -28,6 +28,7 @@ struct frame *frame_create(enum palloc_flags flag)
   {
     clock_algorithm();
     new_frame->kernel_vaddr = palloc_get_page(PAL_USER | flag);
+    // printf("clock kernel_vaddr: %p\n", new_frame->kernel_vaddr);
     new_frame->clock_bit = true;
   }
   // new_frame->page = NULL;
@@ -66,7 +67,7 @@ bool set_page_frame(struct page *page)
     return false;
   }
   frame->page = page;
-  frame->bit_index = -1;
+  // frame->bit_index = -1;
   frame->clock_bit = true;
   frame->thread = thread_current();
   page->frame = frame;
@@ -108,11 +109,12 @@ void clock_algorithm(void)
   }
   // pagedir_clear_page(cur_frame->thread->pagedir, cur_frame->kernel_vaddr);
   cur_page = cur_frame->page;
-  // printf("kernel_vaddr: %p, vaddr: %p\n", cur_frame->kernel_vaddr, cur_page->vaddr);
+  // printf("evict) kernel_vaddr: %p, vaddr: %p\n", cur_frame->kernel_vaddr, cur_page->vaddr);
   pagedir_clear_page(cur_frame->thread->pagedir, cur_page->vaddr);
   bit_index = swap_out(cur_frame->kernel_vaddr);
   dirty = pagedir_is_dirty(cur_frame->thread->pagedir, cur_frame->kernel_vaddr);
   set_swap_spt(cur_page, bit_index, dirty);
+
   palloc_free_page(cur_frame->kernel_vaddr);
-  // remove from frame list
+  list_remove(clock_iter);
 }
